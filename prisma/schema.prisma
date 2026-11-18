@@ -1,0 +1,299 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         String     @default("STAFF") // ADMIN, PHARMACIST, STAFF
+  phone        String?
+  active       Boolean    @default(true)
+  auditLogs    AuditLog[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model StoreSettings {
+  id              String   @id @default("default")
+  storeName       String   @default("R & A Medical Store")
+  tagline         String?  @default("Complete Healthcare & Pharmacy Solutions")
+  address         String   @default("123, Main Hospital Road, Civil Lines")
+  city            String   @default("New Delhi")
+  state           String   @default("Delhi")
+  pincode         String   @default("110001")
+  phone           String   @default("+91 98765 43210")
+  email           String?  @default("contact@ramedical.com")
+  gstin           String   @default("07AAAAA0000A1Z5")
+  dlNumber1       String   @default("DL-20B-123456")
+  dlNumber2       String?  @default("DL-21B-654321")
+  fssaiNumber     String?  @default("10012345678901")
+  terms           String?  @default("1. Goods once sold will not be taken back without valid bill.\n2. Medicines must be stored under prescribed temperature.\n3. Keep medicines out of reach of children.")
+  upiId           String?  @default("ramedical@upi")
+  smsGateway      String?  @default("MOCK") // MOCK, MSG91, 2FACTOR
+  smsApiKey       String?
+  whatsappToken   String?
+  whatsappPhoneId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  description String?
+  medicines   Medicine[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Medicine {
+  id              String          @id @default(uuid())
+  name            String
+  genericName     String?
+  saltComposition String?
+  company         String
+  categoryId      String?
+  category        Category?       @relation(fields: [categoryId], references: [id])
+  barcode         String?         @unique
+  packSize        String          @default("1x10")
+  hsnCode         String?         @default("3004")
+  purchasePrice   Float           @default(0.0)
+  mrp             Float           @default(0.0)
+  sellingPrice    Float           @default(0.0)
+  gstRate         Float           @default(12.0) // 0%, 5%, 12%, 18%
+  minStockLevel   Int             @default(10)
+  batches         Batch[]
+  purchaseItems   PurchaseItem[]
+  invoiceItems    InvoiceItem[]
+  stockMovements  StockMovement[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model Batch {
+  id             String          @id @default(uuid())
+  medicineId     String
+  medicine       Medicine        @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  batchNumber    String
+  mfgDate        DateTime?
+  expiryDate     DateTime
+  quantity       Int             @default(0)
+  purchasePrice  Float
+  mrp            Float
+  invoiceItems   InvoiceItem[]
+  stockMovements StockMovement[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([medicineId, batchNumber])
+}
+
+model Supplier {
+  id            String     @id @default(uuid())
+  name          String
+  mobile        String
+  email         String?
+  address       String?
+  gstin         String?
+  dlNumber      String?
+  contactPerson String?
+  purchases     Purchase[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Purchase {
+  id            String         @id @default(uuid())
+  invoiceNumber String         // Supplier's invoice/bill number
+  supplierId    String
+  supplier      Supplier       @relation(fields: [supplierId], references: [id])
+  purchaseDate  DateTime       @default(now())
+  subtotal      Float          @default(0.0)
+  taxAmount     Float          @default(0.0)
+  totalAmount   Float          @default(0.0)
+  paidAmount    Float          @default(0.0)
+  paymentStatus String         @default("PAID") // PAID, PARTIAL, UNPAID
+  notes         String?
+  items         PurchaseItem[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model PurchaseItem {
+  id            String    @id @default(uuid())
+  purchaseId    String
+  purchase      Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  medicineId    String
+  medicine      Medicine  @relation(fields: [medicineId], references: [id])
+  batchNumber   String
+  expiryDate    DateTime
+  mfgDate       DateTime?
+  quantity      Int
+  freeQuantity  Int       @default(0)
+  purchasePrice Float
+  mrp           Float
+  gstRate       Float     @default(12.0)
+  totalAmount   Float
+  createdAt     DateTime  @default(now())
+}
+
+model Customer {
+  id             String           @id @default(uuid())
+  name           String
+  mobile         String           @unique
+  email          String?
+  address        String?
+  totalPurchases Float            @default(0.0)
+  totalPaid      Float            @default(0.0)
+  balanceDue     Float            @default(0.0)
+  invoices       Invoice[]
+  payments       Payment[]
+  ledgers        CustomerLedger[]
+  notifications  Notification[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model Doctor {
+  id                 String    @id @default(uuid())
+  name               String
+  hospitalOrClinic   String?
+  mobile             String?
+  address            String?
+  registrationNumber String?
+  invoices           Invoice[]
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model Invoice {
+  id              String         @id @default(uuid())
+  invoiceNumber   String         @unique // e.g. INV-2026-0001
+  customerId      String?
+  customer        Customer?      @relation(fields: [customerId], references: [id])
+  patientName     String         // Copied or manually entered for walk-ins
+  patientMobile   String?
+  patientAddress  String?
+  doctorId        String?
+  doctor          Doctor?        @relation(fields: [doctorId], references: [id])
+  doctorName      String?
+  invoiceDate     DateTime       @default(now())
+  subtotal        Float          @default(0.0)
+  discountPercent Float          @default(0.0)
+  discountAmount  Float          @default(0.0)
+  taxableAmount   Float          @default(0.0)
+  cgstAmount      Float          @default(0.0)
+  sgstAmount      Float          @default(0.0)
+  totalGstAmount  Float          @default(0.0)
+  roundOff        Float          @default(0.0)
+  grandTotal      Float          @default(0.0)
+  paidAmount      Float          @default(0.0)
+  remainingAmount Float          @default(0.0)
+  paymentStatus   String         @default("PAID") // PAID, UNPAID, PARTIAL
+  paymentMethod   String         @default("CASH") // CASH, UPI, CARD, BANK_TRANSFER, OTHER
+  notes           String?
+  isCancelled     Boolean        @default(false)
+  items           InvoiceItem[]
+  payments        Payment[]
+  notifications   Notification[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model InvoiceItem {
+  id           String    @id @default(uuid())
+  invoiceId    String
+  invoice      Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  medicineId   String
+  medicine     Medicine  @relation(fields: [medicineId], references: [id])
+  batchId      String
+  batch        Batch     @relation(fields: [batchId], references: [id])
+  quantity     Int
+  pack         String    @default("1x10")
+  expiryDate   DateTime
+  mrp          Float
+  unitPrice    Float
+  discount     Float     @default(0.0)
+  gstRate      Float     @default(12.0)
+  cgstAmount   Float     @default(0.0)
+  sgstAmount   Float     @default(0.0)
+  amount       Float
+  createdAt    DateTime  @default(now())
+}
+
+model Payment {
+  id             String    @id @default(uuid())
+  invoiceId      String?
+  invoice        Invoice?  @relation(fields: [invoiceId], references: [id])
+  customerId     String
+  customer       Customer  @relation(fields: [customerId], references: [id])
+  amount         Float
+  paymentMethod  String    @default("CASH") // CASH, UPI, CARD, BANK_TRANSFER, OTHER
+  transactionRef String?
+  notes          String?
+  paidAt         DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+}
+
+model CustomerLedger {
+  id          String    @id @default(uuid())
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  date        DateTime  @default(now())
+  type        String    // INVOICE, PAYMENT, ADJUSTMENT
+  description String
+  referenceId String?   // Invoice ID or Payment ID
+  debit       Float     @default(0.0) // Bill amount (increases dues)
+  credit      Float     @default(0.0) // Payment made (reduces dues)
+  balance     Float     @default(0.0) // Running customer balance
+  createdAt   DateTime  @default(now())
+}
+
+model StockMovement {
+  id          String    @id @default(uuid())
+  medicineId  String
+  medicine    Medicine  @relation(fields: [medicineId], references: [id])
+  batchId     String
+  batch       Batch     @relation(fields: [batchId], references: [id])
+  type        String    // SALE, PURCHASE, RETURN, ADJUSTMENT, DAMAGE
+  quantity    Int       // Positive for in, negative for out
+  reason      String?
+  referenceId String?   // Invoice ID or Purchase ID
+  createdAt   DateTime  @default(now())
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  invoiceId   String?
+  invoice     Invoice?  @relation(fields: [invoiceId], references: [id])
+  channel     String    // SMS, WHATSAPP
+  recipient   String
+  message     String
+  status      String    @default("PENDING") // SENT, FAILED, MOCKED
+  response    String?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+}
+
