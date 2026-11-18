@@ -118,7 +118,10 @@ export default function DashboardPage() {
     );
   }
 
-  const maxSale = Math.max(...(data?.salesTrend?.map((t) => t.amount) || [1000]), 100);
+  const maxSale = Math.max(
+    ...(data?.salesTrend?.map((t) => Number(t?.amount) || 0) || [1000]),
+    100
+  );
 
   return (
     <div className="space-y-6">
@@ -289,19 +292,20 @@ export default function DashboardPage() {
           {/* Bar Chart Representation */}
           <div className="h-56 flex items-end gap-3 pt-6 pb-2 px-2 border-b border-slate-100">
             {data?.salesTrend?.map((item, idx) => {
-              const heightPct = Math.max(8, Math.round((item.amount / maxSale) * 100));
+              const amount = Number(item?.amount) || 0;
+              const heightPct = Math.max(8, Math.round((amount / (maxSale || 100)) * 100));
               return (
                 <div key={idx} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
                   <div className="text-[10px] font-semibold text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                    ₹{item.amount.toFixed(0)}
+                    ₹{amount.toFixed(0)}
                   </div>
                   <div
                     style={{ height: `${heightPct}%` }}
                     className="w-full max-w-[42px] bg-blue-600 hover:bg-blue-500 rounded-t-md transition-all shadow-xs group-hover:scale-y-[1.03] origin-bottom"
                   />
                   <div className="text-center">
-                    <p className="text-[11px] font-bold text-slate-700">{item.day}</p>
-                    <p className="text-[10px] text-slate-400">{item.date}</p>
+                    <p className="text-[11px] font-bold text-slate-700">{item?.day || ""}</p>
+                    <p className="text-[10px] text-slate-400">{item?.date || ""}</p>
                   </div>
                 </div>
               );

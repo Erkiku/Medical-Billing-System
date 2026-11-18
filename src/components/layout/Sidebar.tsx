@@ -47,7 +47,7 @@ export function Sidebar() {
   };
 
   // Generate initials for avatar (e.g. "SM" for Sagar Medical)
-  const storeInitials = storeInfo?.storeName
+  const storeInitials = typeof storeInfo?.storeName === "string"
     ? storeInfo.storeName
         .split(" ")
         .filter(Boolean)
