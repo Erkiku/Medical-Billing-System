@@ -11,11 +11,13 @@ datasource db {
 model User {
   id           String     @id @default(uuid())
   name         String
-  email        String     @unique
+  username     String?    @unique
+  email        String?    @unique
   passwordHash String
   role         String     @default("STAFF") // ADMIN, PHARMACIST, STAFF
   phone        String?
   active       Boolean    @default(true)
+  assignedBy   String?    @default("DEVELOPER") // DEVELOPER, ADMIN
   auditLogs    AuditLog[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
