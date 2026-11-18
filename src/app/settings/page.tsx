@@ -408,11 +408,15 @@ export default function SettingsPage() {
             <div>
               <label className="block font-semibold text-slate-700 mb-1">SMS Gateway API Key / Auth Key</label>
               <input
-                type="password"
+                id="smsApiKey"
+                name="smsApiKey"
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
                 value={form.smsApiKey}
                 onChange={(e) => setForm({ ...form, smsApiKey: e.target.value })}
                 placeholder="Enter provider API secret"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-mono text-xs"
               />
             </div>
           </div>
@@ -465,41 +469,41 @@ export default function SettingsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {users.length === 0 ? (
+              {!Array.isArray(users) || users.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
-                    Loading assigned users...
+                    No assigned users found. Click &quot;Assign New User&quot; to add.
                   </td>
                 </tr>
               ) : (
-                users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50">
+                users.map((u, idx) => (
+                  <tr key={u?.id || idx} className="hover:bg-slate-50">
                     <td className="py-2.5 px-4 font-mono font-bold text-blue-600">
-                      {u.username || u.email}
+                      {u?.username || u?.email || "-"}
                     </td>
-                    <td className="py-2.5 px-4 font-medium text-slate-800">{u.name || "-"}</td>
+                    <td className="py-2.5 px-4 font-medium text-slate-800">{u?.name || "-"}</td>
                     <td className="py-2.5 px-4">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          u.role === "ADMIN"
+                          u?.role === "ADMIN"
                             ? "bg-purple-100 text-purple-800"
-                            : u.role === "PHARMACIST"
+                            : u?.role === "PHARMACIST"
                             ? "bg-blue-100 text-blue-800"
                             : "bg-slate-100 text-slate-700"
                         }`}
                       >
-                        {u.role}
+                        {u?.role || "STAFF"}
                       </span>
                     </td>
                     <td className="py-2.5 px-4">
                       <span
                         className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                          u.assignedBy === "DEVELOPER"
+                          u?.assignedBy === "DEVELOPER"
                             ? "bg-emerald-100 text-emerald-800 font-bold"
                             : "bg-slate-100 text-slate-600"
                         }`}
                       >
-                        {u.assignedBy || "DEVELOPER"}
+                        {u?.assignedBy || "DEVELOPER"}
                       </span>
                     </td>
                     <td className="py-2.5 px-4">
@@ -507,17 +511,17 @@ export default function SettingsPage() {
                         type="button"
                         onClick={() => handleToggleUserStatus(u)}
                         className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
-                          u.active
+                          u?.active
                             ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                             : "bg-rose-100 text-rose-700 hover:bg-rose-200"
                         }`}
                         title="Click to toggle access"
                       >
-                        {u.active ? "● Active / Allowed" : "○ Disabled"}
+                        {u?.active ? "● Active / Allowed" : "○ Disabled"}
                       </button>
                     </td>
                     <td className="py-2.5 px-4 text-right">
-                      {u.username !== "eduvikku@007" ? (
+                      {u?.username !== "eduvikku@007" ? (
                         <button
                           type="button"
                           onClick={() => handleDeleteUser(u)}
@@ -552,9 +556,12 @@ export default function SettingsPage() {
 
             <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Username *</label>
+                <label htmlFor="new-user-username" className="block font-semibold text-slate-700 mb-1">Username *</label>
                 <input
+                  id="new-user-username"
+                  name="new_user_username"
                   type="text"
+                  autoComplete="off"
                   required
                   value={newUser.username}
                   onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
@@ -564,9 +571,12 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Password *</label>
+                <label htmlFor="new-user-password" className="block font-semibold text-slate-700 mb-1">Password *</label>
                 <input
+                  id="new-user-password"
+                  name="new_user_password"
                   type="password"
+                  autoComplete="new-password"
                   required
                   value={newUser.password}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
@@ -648,26 +658,28 @@ export default function SettingsPage() {
                   </td>
                 </tr>
               ) : (
-                notificationLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50">
-                    <td className="py-2 px-4 text-slate-600">{new Date(log.createdAt).toLocaleString("en-IN")}</td>
+                notificationLogs.map((log, idx) => (
+                  <tr key={log?.id || idx} className="hover:bg-slate-50">
+                    <td className="py-2 px-4 text-slate-600">
+                      {log?.createdAt ? new Date(log.createdAt).toLocaleString("en-IN") : "-"}
+                    </td>
                     <td className="py-2 px-4">
                       <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-100 text-slate-700">
-                        {log.channel}
+                        {log?.channel || "-"}
                       </span>
                     </td>
-                    <td className="py-2 px-4 font-mono font-medium text-slate-800">{log.recipient}</td>
-                    <td className="py-2 px-4 text-slate-800">{log.customer?.name || "-"}</td>
-                    <td className="py-2 px-4 font-mono text-blue-600">{log.invoice?.invoiceNumber || "-"}</td>
+                    <td className="py-2 px-4 font-mono font-medium text-slate-800">{log?.recipient || "-"}</td>
+                    <td className="py-2 px-4 text-slate-800">{log?.customer?.name || "-"}</td>
+                    <td className="py-2 px-4 font-mono text-blue-600">{log?.invoice?.invoiceNumber || "-"}</td>
                     <td className="py-2 px-4">
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          log.status === "SENT"
+                          log?.status === "SENT"
                             ? "bg-emerald-100 text-emerald-800"
                             : "bg-blue-100 text-blue-800"
                         }`}
                       >
-                        {log.status}
+                        {log?.status || "PENDING"}
                       </span>
                     </td>
                   </tr>

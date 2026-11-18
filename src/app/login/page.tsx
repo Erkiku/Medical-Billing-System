@@ -73,15 +73,27 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form
+            action="/login"
+            method="POST"
+            onSubmit={handleSubmit}
+            autoComplete="on"
+            className="space-y-4"
+          >
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="login-username" className="block text-xs font-semibold text-slate-700 mb-1">
                 Username
               </label>
               <div className="relative">
                 <User className="h-4 w-4 absolute left-3 top-3 text-slate-400" />
                 <input
+                  id="login-username"
+                  name="username"
                   type="text"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -92,13 +104,16 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="login-password" className="block text-xs font-semibold text-slate-700 mb-1">
                 Password
               </label>
               <div className="relative">
                 <Lock className="h-4 w-4 absolute left-3 top-3 text-slate-400" />
                 <input
+                  id="login-password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
