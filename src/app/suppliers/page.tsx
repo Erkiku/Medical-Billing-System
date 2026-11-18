@@ -23,11 +23,12 @@ export default function SuppliersPage() {
     fetch("/api/suppliers")
       .then((res) => res.json())
       .then((data) => {
-        setSuppliers(data || []);
+        setSuppliers(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {
         console.error(err);
+        setSuppliers([]);
         setLoading(false);
       });
   };

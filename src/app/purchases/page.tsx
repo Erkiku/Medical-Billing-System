@@ -50,11 +50,12 @@ export default function PurchasesPage() {
     fetch("/api/purchases")
       .then((res) => res.json())
       .then((data) => {
-        setPurchases(data || []);
+        setPurchases(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {
         console.error(err);
+        setPurchases([]);
         setLoading(false);
       });
   };
@@ -63,12 +64,12 @@ export default function PurchasesPage() {
     fetchPurchases();
     fetch("/api/suppliers")
       .then((res) => res.json())
-      .then((sups) => setSuppliers(sups || []))
-      .catch(() => {});
+      .then((sups) => setSuppliers(Array.isArray(sups) ? sups : []))
+      .catch(() => setSuppliers([]));
     fetch("/api/medicines")
       .then((res) => res.json())
-      .then((meds) => setMedicines(meds || []))
-      .catch(() => {});
+      .then((meds) => setMedicines(Array.isArray(meds) ? meds : []))
+      .catch(() => setMedicines([]));
   }, []);
 
   const handleAddItemRow = () => {

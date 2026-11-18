@@ -44,11 +44,12 @@ export default function CustomersPage() {
     fetch(`/api/customers?search=${encodeURIComponent(search)}`)
       .then((res) => res.json())
       .then((data) => {
-        setCustomers(data || []);
+        setCustomers(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {
         console.error(err);
+        setCustomers([]);
         setLoading(false);
       });
   };

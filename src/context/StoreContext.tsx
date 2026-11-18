@@ -26,6 +26,23 @@ export interface UserInfo {
   role?: string;
 }
 
+export const DEFAULT_STORE_INFO: StoreInfo = {
+  storeName: "R & A Medical Store",
+  tagline: "Retail & Wholesale Chemists • Complete Healthcare",
+  address: "123, Main Hospital Road, Civil Lines",
+  city: "New Delhi",
+  state: "Delhi",
+  pincode: "110001",
+  phone: "+91 98765 43210",
+  email: "contact@ramedical.com",
+  gstin: "07AAAAA0000A1Z5",
+  dlNumber1: "DL-20B-123456",
+  dlNumber2: "DL-21B-654321",
+  fssaiNumber: "10012345678901",
+  terms: "1. Goods once sold will not be taken back without valid bill.\n2. Medicines must be stored under prescribed temperature.\n3. Keep medicines out of reach of children.",
+  upiId: "ramedical@upi",
+};
+
 interface StoreContextType {
   storeInfo: StoreInfo | null;
   userInfo: UserInfo | null;
@@ -34,14 +51,14 @@ interface StoreContextType {
 }
 
 const StoreContext = createContext<StoreContextType>({
-  storeInfo: null,
+  storeInfo: DEFAULT_STORE_INFO,
   userInfo: null,
   refreshStore: async () => {},
   updateStoreInfo: () => {},
 });
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null);
+  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(DEFAULT_STORE_INFO);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
   const fetchStoreAndUser = useCallback(async () => {

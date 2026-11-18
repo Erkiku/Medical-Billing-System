@@ -40,13 +40,65 @@ export default function DashboardPage() {
   const fetchStats = () => {
     setLoading(true);
     fetch("/api/dashboard/stats")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return res.json();
+      })
       .then((d) => {
-        setData(d);
+        if (d && !d.error && Array.isArray(d.salesTrend)) {
+          setData(d);
+        } else {
+          setData({
+            todaySales: 0,
+            monthlySales: 0,
+            totalMedicines: 0,
+            totalStockValue: 0,
+            lowStockCount: 0,
+            nearExpiryCount: 0,
+            expiredCount: 0,
+            totalCustomerDues: 0,
+            recentBills: [],
+            recentPayments: [],
+            salesTrend: [
+              { day: "Mon", date: "", amount: 0 },
+              { day: "Tue", date: "", amount: 0 },
+              { day: "Wed", date: "", amount: 0 },
+              { day: "Thu", date: "", amount: 0 },
+              { day: "Fri", date: "", amount: 0 },
+              { day: "Sat", date: "", amount: 0 },
+              { day: "Sun", date: "", amount: 0 },
+            ],
+            lowStockList: [],
+          });
+        }
         setLoading(false);
       })
       .catch((err) => {
-        console.error(err);
+        console.warn("Failed to load dashboard stats, using defaults:", err);
+        setData({
+          todaySales: 0,
+          monthlySales: 0,
+          totalMedicines: 0,
+          totalStockValue: 0,
+          lowStockCount: 0,
+          nearExpiryCount: 0,
+          expiredCount: 0,
+          totalCustomerDues: 0,
+          recentBills: [],
+          recentPayments: [],
+          salesTrend: [
+            { day: "Mon", date: "", amount: 0 },
+            { day: "Tue", date: "", amount: 0 },
+            { day: "Wed", date: "", amount: 0 },
+            { day: "Thu", date: "", amount: 0 },
+            { day: "Fri", date: "", amount: 0 },
+            { day: "Sat", date: "", amount: 0 },
+            { day: "Sun", date: "", amount: 0 },
+          ],
+          lowStockList: [],
+        });
         setLoading(false);
       });
   };
@@ -66,7 +118,7 @@ export default function DashboardPage() {
     );
   }
 
-  const maxSale = Math.max(...(data?.salesTrend.map((t) => t.amount) || [1000]), 100);
+  const maxSale = Math.max(...(data?.salesTrend?.map((t) => t.amount) || [1000]), 100);
 
   return (
     <div className="space-y-6">
@@ -236,7 +288,7 @@ export default function DashboardPage() {
 
           {/* Bar Chart Representation */}
           <div className="h-56 flex items-end gap-3 pt-6 pb-2 px-2 border-b border-slate-100">
-            {data?.salesTrend.map((item, idx) => {
+            {data?.salesTrend?.map((item, idx) => {
               const heightPct = Math.max(8, Math.round((item.amount / maxSale) * 100));
               return (
                 <div key={idx} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end">
@@ -267,7 +319,7 @@ export default function DashboardPage() {
               </Link>
             </div>
             <div className="space-y-3 mt-4">
-              {data?.lowStockList && data.lowStockList.length > 0 ? (
+              {Array.isArray(data?.lowStockList) && data.lowStockList.length > 0 ? (
                 data.lowStockList.map((item) => (
                   <div key={item.id} className="p-3 rounded-lg border border-slate-100 bg-slate-50/60 flex items-center justify-between">
                     <div>
@@ -321,7 +373,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {data?.recentBills && data.recentBills.length > 0 ? (
+                {Array.isArray(data?.recentBills) && data.recentBills.length > 0 ? (
                   data.recentBills.map((inv) => (
                     <tr key={inv.id} className="hover:bg-slate-50/50">
                       <td className="py-2.5 px-3 font-semibold text-blue-600">{inv.invoiceNumber}</td>
@@ -383,7 +435,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {data?.recentPayments && data.recentPayments.length > 0 ? (
+                {Array.isArray(data?.recentPayments) && data.recentPayments.length > 0 ? (
                   data.recentPayments.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/50">
                       <td className="py-2.5 px-3 font-semibold text-slate-800">{p.customer?.name}</td>

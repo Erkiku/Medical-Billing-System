@@ -34,11 +34,12 @@ export default function InvoicesListPage() {
     fetch(url)
       .then((res) => res.json())
       .then((data) => {
-        setInvoices(data || []);
+        setInvoices(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {
         console.error(err);
+        setInvoices([]);
         setLoading(false);
       });
   };

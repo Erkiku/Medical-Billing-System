@@ -147,7 +147,29 @@ export async function GET() {
       lowStockList: lowStockList.slice(0, 5),
     });
   } catch (error: unknown) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.warn("Failed to load live dashboard stats, returning zeroed defaults:", error);
+    return NextResponse.json({
+      todaySales: 0,
+      monthlySales: 0,
+      totalMedicines: 0,
+      totalStockValue: 0,
+      lowStockCount: 0,
+      nearExpiryCount: 0,
+      expiredCount: 0,
+      totalCustomerDues: 0,
+      recentBills: [],
+      recentPayments: [],
+      salesTrend: [
+        { day: "Mon", date: "", amount: 0 },
+        { day: "Tue", date: "", amount: 0 },
+        { day: "Wed", date: "", amount: 0 },
+        { day: "Thu", date: "", amount: 0 },
+        { day: "Fri", date: "", amount: 0 },
+        { day: "Sat", date: "", amount: 0 },
+        { day: "Sun", date: "", amount: 0 },
+      ],
+      lowStockList: [],
+    });
   }
 }
 

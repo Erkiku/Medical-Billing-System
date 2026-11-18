@@ -84,11 +84,12 @@ export default function MedicinesPage() {
     fetch(url)
       .then((res) => res.json())
       .then((data) => {
-        setMedicines(data || []);
+        setMedicines(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((err) => {
         console.error(err);
+        setMedicines([]);
         setLoading(false);
       });
   };
@@ -97,8 +98,8 @@ export default function MedicinesPage() {
     fetchMedicines();
     fetch("/api/categories")
       .then((res) => res.json())
-      .then((cats) => setCategories(cats || []))
-      .catch(() => {});
+      .then((cats) => setCategories(Array.isArray(cats) ? cats : []))
+      .catch(() => setCategories([]));
   }, [selectedCategory]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {

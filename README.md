@@ -35,3 +35,4 @@ Click **Deploy**! Vercel will install dependencies, generate the Prisma client, 
 ### Default Login:
 - **Email**: `admin@medicalpro.com`
 - **Password**: `admin123`
+

@@ -104,8 +104,8 @@ export default function BillingPage() {
   useEffect(() => {
     fetch("/api/doctors")
       .then((res) => res.json())
-      .then((docs) => setDoctorsList(docs || []))
-      .catch(() => {});
+      .then((docs) => setDoctorsList(Array.isArray(docs) ? docs : []))
+      .catch(() => setDoctorsList([]));
   }, []);
 
   // Quick lookup customer by mobile
@@ -115,7 +115,7 @@ export default function BillingPage() {
       try {
         const res = await fetch(`/api/customers?search=${mobile}`);
         const data = await res.json();
-        if (data && data.length > 0) {
+        if (Array.isArray(data) && data.length > 0) {
           const cust = data[0];
           setPatientName(cust.name);
           if (cust.address) setPatientAddress(cust.address);
@@ -136,10 +136,13 @@ export default function BillingPage() {
       fetch(`/api/medicines/search?q=${encodeURIComponent(searchQuery)}`)
         .then((res) => res.json())
         .then((data) => {
-          setSearchResults(data || []);
+          setSearchResults(Array.isArray(data) ? data : []);
           setSearchLoading(false);
         })
-        .catch(() => setSearchLoading(false));
+        .catch(() => {
+          setSearchResults([]);
+          setSearchLoading(false);
+        });
     }, 250);
 
     return () => clearTimeout(timer);
