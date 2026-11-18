@@ -24,6 +24,7 @@ export default function MedicinesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedSchedule, setSelectedSchedule] = useState("");
 
   // Modals
   const [showAddMedicineModal, setShowAddMedicineModal] = useState(false);
@@ -53,6 +54,7 @@ export default function MedicinesPage() {
     categoryId: "",
     barcode: "",
     packSize: "1x10",
+    schedule: "NONE",
     purchasePrice: "",
     mrp: "",
     sellingPrice: "",
@@ -80,6 +82,7 @@ export default function MedicinesPage() {
     setLoading(true);
     let url = `/api/medicines?search=${encodeURIComponent(search)}`;
     if (selectedCategory) url += `&categoryId=${selectedCategory}`;
+    if (selectedSchedule) url += `&schedule=${selectedSchedule}`;
 
     fetch(url)
       .then((res) => res.json())
@@ -100,7 +103,7 @@ export default function MedicinesPage() {
       .then((res) => res.json())
       .then((cats) => setCategories(Array.isArray(cats) ? cats : []))
       .catch(() => setCategories([]));
-  }, [selectedCategory]);
+  }, [selectedCategory, selectedSchedule]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,6 +136,7 @@ export default function MedicinesPage() {
         categoryId: "",
         barcode: "",
         packSize: "1x10",
+        schedule: "NONE",
         purchasePrice: "",
         mrp: "",
         sellingPrice: "",
@@ -352,21 +356,40 @@ export default function MedicinesPage() {
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Category Filter */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs font-semibold text-slate-500">Category:</span>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+        {/* Category & Schedule Filters */}
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-slate-500">Category:</span>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-slate-500">Schedule:</span>
+            <select
+              value={selectedSchedule}
+              onChange={(e) => setSelectedSchedule(e.target.value)}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Schedules</option>
+              <option value="NONE">General (OTC / None)</option>
+              <option value="H">Schedule H</option>
+              <option value="H1">Schedule H1</option>
+              <option value="C">Schedule C</option>
+              <option value="C1">Schedule C1</option>
+              <option value="X">Schedule X</option>
+            </select>
+          </div>
         </div>
 
         {/* Search */}
@@ -440,7 +463,22 @@ export default function MedicinesPage() {
                 medicines.map((med) => (
                   <tr key={med.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900 text-sm">{med.name}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-slate-900 text-sm">{med.name}</span>
+                        {med.schedule && med.schedule !== "NONE" && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                              med.schedule === "H1" || med.schedule === "X"
+                                ? "bg-rose-100 text-rose-800 border border-rose-300"
+                                : med.schedule === "H"
+                                ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                : "bg-blue-100 text-blue-800 border border-blue-300"
+                            }`}
+                          >
+                            Sch {med.schedule}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[11px] text-slate-500 font-medium">
                         {med.saltComposition || med.genericName || med.company}
                       </div>
@@ -634,7 +672,7 @@ export default function MedicinesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Category</label>
                   <select
@@ -648,6 +686,32 @@ export default function MedicinesPage() {
                         {c.name}
                       </option>
                     ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                    <span>Drug Schedule</span>
+                    <span className="text-[10px] text-blue-600 font-bold uppercase">H, H1, C, X</span>
+                  </label>
+                  <select
+                    value={medForm.schedule}
+                    onChange={(e) => setMedForm({ ...medForm, schedule: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg font-bold text-xs transition-colors ${
+                      medForm.schedule === "H1" || medForm.schedule === "X"
+                        ? "bg-rose-50 border-rose-300 text-rose-800"
+                        : medForm.schedule === "H"
+                        ? "bg-amber-50 border-amber-300 text-amber-800"
+                        : medForm.schedule === "C" || medForm.schedule === "C1"
+                        ? "bg-blue-50 border-blue-300 text-blue-800"
+                        : "bg-slate-50 border-slate-200 text-slate-800 font-medium"
+                    }`}
+                  >
+                    <option value="NONE">General (OTC / Non-Scheduled)</option>
+                    <option value="H">Schedule H (Prescription Required)</option>
+                    <option value="H1">Schedule H1 (Warning / Restricted Antibiotics)</option>
+                    <option value="C">Schedule C (Biological Products)</option>
+                    <option value="C1">Schedule C1 (Special Biologicals)</option>
+                    <option value="X">Schedule X (Narcotics / Psychotropics)</option>
                   </select>
                 </div>
                 <div>
@@ -671,6 +735,26 @@ export default function MedicinesPage() {
                   />
                 </div>
               </div>
+
+              {medForm.schedule && medForm.schedule !== "NONE" && (
+                <div
+                  className={`p-2.5 rounded-lg border text-[11px] font-medium flex items-center gap-2 ${
+                    medForm.schedule === "H1" || medForm.schedule === "X"
+                      ? "bg-rose-50 border-rose-200 text-rose-800"
+                      : medForm.schedule === "H"
+                      ? "bg-amber-50 border-amber-200 text-amber-800"
+                      : "bg-blue-50 border-blue-200 text-blue-800"
+                  }`}
+                >
+                  <span className="font-bold">
+                    {medForm.schedule === "H" && "⚠️ Schedule H Warning: To be sold by retail on the prescription of a Registered Medical Practitioner (RMP) only."}
+                    {medForm.schedule === "H1" && "🔴 Schedule H1 Warning: Restricted habit-forming/antibiotic drug. Mandatory prescription register record required."}
+                    {medForm.schedule === "C" && "🧬 Schedule C Drug: Biological / antibiotic product subject to special storage conditions."}
+                    {medForm.schedule === "C1" && "🧬 Schedule C1 Drug: Special biological product requiring batch & cold chain storage records."}
+                    {medForm.schedule === "X" && "⛔ Schedule X Warning: Narcotic / Psychotropic substance. Duplicate prescription & 2-year register maintenance mandatory."}
+                  </span>
+                </div>
+              )}
 
               <div className="grid grid-cols-4 gap-3">
                 <div>

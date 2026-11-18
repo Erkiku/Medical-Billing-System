@@ -6,19 +6,23 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
     const categoryId = searchParams.get("categoryId") || "";
+    const schedule = searchParams.get("schedule") || "";
 
     const where: any = {};
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { genericName: { contains: search } },
-        { saltComposition: { contains: search } },
-        { company: { contains: search } },
+        { name: { contains: search, mode: "insensitive" } },
+        { genericName: { contains: search, mode: "insensitive" } },
+        { saltComposition: { contains: search, mode: "insensitive" } },
+        { company: { contains: search, mode: "insensitive" } },
         { barcode: { contains: search } },
       ];
     }
     if (categoryId) {
       where.categoryId = categoryId;
+    }
+    if (schedule) {
+      where.schedule = schedule;
     }
 
     const medicines = await prisma.medicine.findMany({
@@ -75,6 +79,7 @@ export async function POST(req: Request) {
       barcode,
       packSize,
       hsnCode,
+      schedule = "NONE",
       purchasePrice,
       mrp,
       sellingPrice,
@@ -101,6 +106,7 @@ export async function POST(req: Request) {
           barcode: barcode || null,
           packSize: packSize || "1x10",
           hsnCode: hsnCode || "3004",
+          schedule: schedule || "NONE",
           purchasePrice: Number(purchasePrice) || 0,
           mrp: Number(mrp) || 0,
           sellingPrice: Number(sellingPrice) || Number(mrp) || 0,

@@ -38,6 +38,7 @@ interface MedicineResult {
   company: string;
   barcode?: string;
   packSize: string;
+  schedule?: string;
   mrp: number;
   sellingPrice: number;
   gstRate: number;
@@ -51,6 +52,7 @@ interface BillItem {
   medicineName: string;
   company: string;
   pack: string;
+  schedule?: string;
   batchId: string;
   batchNumber: string;
   expiryDate: string;
@@ -525,8 +527,21 @@ export default function BillingPage() {
                     className="p-3 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors"
                   >
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-bold text-slate-900">{med.name}</span>
+                        {med.schedule && med.schedule !== "NONE" && (
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider ${
+                              med.schedule === "H1" || med.schedule === "X"
+                                ? "bg-rose-100 text-rose-800 border border-rose-300"
+                                : med.schedule === "H"
+                                ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                : "bg-blue-100 text-blue-800 border border-blue-300"
+                            }`}
+                          >
+                            Sch {med.schedule}
+                          </span>
+                        )}
                         <span className="text-[10px] px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-medium">
                           {med.packSize}
                         </span>

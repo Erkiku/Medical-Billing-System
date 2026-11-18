@@ -67,6 +67,7 @@ model Medicine {
   barcode         String?         @unique
   packSize        String          @default("1x10")
   hsnCode         String?         @default("3004")
+  schedule        String?         @default("NONE") // NONE, H, H1, C, C1, X
   purchasePrice   Float           @default(0.0)
   mrp             Float           @default(0.0)
   sellingPrice    Float           @default(0.0)

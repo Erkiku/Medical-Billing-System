@@ -40,6 +40,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         barcode: body.barcode || null,
         packSize: body.packSize,
         hsnCode: body.hsnCode,
+        schedule: body.schedule !== undefined ? body.schedule : undefined,
         purchasePrice: Number(body.purchasePrice) || 0,
         mrp: Number(body.mrp) || 0,
         sellingPrice: Number(body.sellingPrice) || 0,
