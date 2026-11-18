@@ -97,8 +97,8 @@ export default function SettingsPage() {
 
     fetch("/api/notifications/remind")
       .then((res) => res.json())
-      .then((logs) => setNotificationLogs(logs || []))
-      .catch(() => {});
+      .then((logs) => setNotificationLogs(Array.isArray(logs) ? logs : []))
+      .catch(() => setNotificationLogs([]));
 
     fetchUsers();
   };
@@ -641,7 +641,7 @@ export default function SettingsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {notificationLogs.length === 0 ? (
+              {!Array.isArray(notificationLogs) || notificationLogs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
                     No notification logs recorded yet. Reminders sent via invoices will appear here.

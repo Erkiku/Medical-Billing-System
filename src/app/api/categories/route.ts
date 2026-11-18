@@ -3,15 +3,19 @@ import prisma from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany({
-      include: {
-        _count: { select: { medicines: true } },
-      },
-      orderBy: { name: "asc" },
-    });
-    return NextResponse.json(categories);
+    if (process.env.DATABASE_URL) {
+      const categories = await prisma.category.findMany({
+        include: {
+          _count: { select: { medicines: true } },
+        },
+        orderBy: { name: "asc" },
+      });
+      return NextResponse.json(categories);
+    }
+    return NextResponse.json([]);
   } catch (error: unknown) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.warn("Categories query error, returning empty list:", error);
+    return NextResponse.json([]);
   }
 }
 

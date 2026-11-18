@@ -58,7 +58,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json(enriched);
   } catch (error: unknown) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.warn("Medicines query error, returning empty list:", error);
+    return NextResponse.json([]);
   }
 }
 

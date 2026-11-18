@@ -14,7 +14,8 @@ export async function GET() {
     });
     return NextResponse.json(purchases);
   } catch (error: unknown) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.warn("Purchases query error, returning empty list:", error);
+    return NextResponse.json([]);
   }
 }
 

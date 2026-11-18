@@ -24,7 +24,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json(customers);
   } catch (error: unknown) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.warn("Customers query error, returning empty list:", error);
+    return NextResponse.json([]);
   }
 }
 
