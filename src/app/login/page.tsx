@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Lock, Mail, AlertCircle, ArrowRight } from "lucide-react";
+import { ShieldCheck, Lock, Mail, AlertCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("admin@medicalpro.com");
   const [password, setPassword] = useState("admin123");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -46,6 +47,7 @@ export default function LoginPage() {
   const setCredentials = (eMail: string, pass: string) => {
     setEmail(eMail);
     setPassword(pass);
+    setError("");
   };
 
   return (
@@ -66,9 +68,12 @@ export default function LoginPage() {
           <p className="text-xs text-slate-500 mb-6">Sign in to access medical store billing & stock</p>
 
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{error}</span>
+            <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5 leading-relaxed">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
+              <div className="flex-1">
+                <span className="font-semibold block mb-0.5">Authentication Notice</span>
+                <span>{error}</span>
+              </div>
             </div>
           )}
 
@@ -97,20 +102,33 @@ export default function LoginPage() {
               <div className="relative">
                 <Lock className="h-4 w-4 absolute left-3 top-3 text-slate-400" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                  className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors p-0.5"
+                  title={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               <span>{loading ? "Signing in..." : "Sign In to ERP"}</span>
               <ArrowRight className="h-4 w-4" />
@@ -126,7 +144,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setCredentials("admin@medicalpro.com", "admin123")}
-                className="p-2 border border-slate-200 rounded-lg text-left hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+                className="p-2 border border-slate-200 rounded-lg text-left hover:border-blue-400 hover:bg-blue-50/50 transition-colors cursor-pointer"
               >
                 <p className="font-semibold text-slate-800">Admin</p>
                 <p className="text-[10px] text-slate-500">admin@medicalpro.com</p>
@@ -134,7 +152,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setCredentials("pharmacist@medicalpro.com", "staff123")}
-                className="p-2 border border-slate-200 rounded-lg text-left hover:border-blue-400 hover:bg-blue-50/50 transition-colors"
+                className="p-2 border border-slate-200 rounded-lg text-left hover:border-blue-400 hover:bg-blue-50/50 transition-colors cursor-pointer"
               >
                 <p className="font-semibold text-slate-800">Pharmacist</p>
                 <p className="text-[10px] text-slate-500">pharmacist@medicalpro.com</p>
