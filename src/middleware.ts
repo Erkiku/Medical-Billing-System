@@ -15,9 +15,13 @@ export function middleware(request: NextRequest) {
   }
 
   const sessionToken = request.cookies.get("medical_session")?.value;
+  const isAuthRoute =
+    pathname === "/login" ||
+    pathname === "/admin/login" ||
+    pathname === "/admin-login";
 
-  // 2. If user is on /login page
-  if (pathname === "/login") {
+  // 2. If user is on an auth page (/login or /admin/login)
+  if (isAuthRoute) {
     // If already logged in with a valid session, redirect to dashboard
     if (sessionToken) {
       return NextResponse.redirect(new URL("/", request.url));
@@ -25,7 +29,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. If user is NOT on /login and has NO session, ALWAYS redirect to /login first!
+  // 3. If user is NOT on an auth page and has NO session, ALWAYS redirect to /login first!
   if (!sessionToken) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);

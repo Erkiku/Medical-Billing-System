@@ -1,46 +1,22 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { verifyPassword, setSessionCookie } from "@/lib/auth";
-
-// Developer provisioned accounts (guaranteed to work in both live DB & offline fallback mode)
-const DEVELOPER_ASSIGNED_USERS = [
-  {
-    id: "dev-user-001",
-    name: "Eduvikku Admin",
-    username: "eduvikku@007",
-    email: "eduvikku@medicalpro.com",
-    role: "ADMIN",
-    passwords: ["admin123", "admin"],
-  },
-  {
-    id: "dev-user-002",
-    name: "System Admin",
-    username: "admin",
-    email: "admin@medicalpro.com",
-    role: "ADMIN",
-    passwords: ["admin123"],
-  },
-  {
-    id: "dev-user-003",
-    name: "Staff Pharmacist",
-    username: "pharmacist",
-    email: "pharmacist@medicalpro.com",
-    role: "PHARMACIST",
-    passwords: ["staff123", "admin123"],
-  },
-];
+import { findAssignedUser, getStoreSettings, updateStoreSettings } from "@/lib/userStore";
 
 export async function POST(req: Request) {
   try {
-    const { email, username, password } = await req.json();
+    const body = await req.json();
+    const { email, username, password, storeName, isAdminLogin } = body;
     const identifier = String(username || email || "").trim().toLowerCase();
 
     if (!identifier || !password) {
       return NextResponse.json(
-        { error: "Username or Email and password are required" },
+        { error: "Username and password are required to login." },
         { status: 400 }
       );
     }
+
+    let authenticatedUser: any = null;
 
     // 1. If DATABASE_URL is configured, verify against live database User table
     if (process.env.DATABASE_URL) {
@@ -54,93 +30,159 @@ export async function POST(req: Request) {
           },
         });
 
-        if (!user) {
-          return NextResponse.json(
-            {
-              error:
-                "Access denied: This username is not assigned in the system. Only selected accounts assigned by developer or admin can login.",
-            },
-            { status: 401 }
-          );
-        }
+        if (user) {
+          if (!user.active) {
+            return NextResponse.json(
+              { error: "Account deactivated: This login has been disabled by the admin." },
+              { status: 403 }
+            );
+          }
 
-        if (!user.active) {
+          let isValid = await verifyPassword(password, user.passwordHash);
+          // Allow dev fallback password for primary developer admin
+          if (
+            !isValid &&
+            user.username === "eduvikku@007" &&
+            (password === "admin123" || password === "admin")
+          ) {
+            isValid = true;
+          }
+
+          if (isValid) {
+            authenticatedUser = {
+              id: user.id,
+              name: user.name,
+              username: user.username,
+              email: user.email || `${user.username}@medicalpro.local`,
+              role: user.role,
+            };
+
+            try {
+              await prisma.auditLog.create({
+                data: {
+                  userId: user.id,
+                  action: "LOGIN",
+                  entity: "User",
+                  entityId: user.id,
+                  details: `User ${user.username || user.email} logged in successfully`,
+                },
+              });
+            } catch {}
+          } else {
+            return NextResponse.json({ error: "Incorrect password entered" }, { status: 401 });
+          }
+        }
+      } catch (dbError: unknown) {
+        console.warn("Database lookup error, checking assigned users fallback:", dbError);
+      }
+    }
+
+    // 2. Assigned accounts fallback (developer provisioned + admin-assigned accounts)
+    if (!authenticatedUser) {
+      const assigned = findAssignedUser(identifier);
+      if (assigned) {
+        if (!assigned.active) {
           return NextResponse.json(
-            {
-              error: "Account deactivated: This login has been disabled by the admin.",
-            },
+            { error: "Account deactivated: This login has been disabled by the admin." },
             { status: 403 }
           );
         }
 
-        const isValid = await verifyPassword(password, user.passwordHash);
-        if (isValid) {
-          const sessionUser = {
-            id: user.id,
-            name: user.name,
-            email: user.email || `${user.username}@medicalpro.local`,
-            role: user.role,
+        let isValidPassword = false;
+        if (
+          assigned.password &&
+          (assigned.password === password ||
+            (assigned.username === "eduvikku@007" &&
+              (password === "admin123" || password === "admin")) ||
+            (assigned.username === "admin" &&
+              (password === "admin123" || password === "admin")) ||
+            (assigned.username === "pharmacist" &&
+              (password === "staff123" ||
+                password === "admin123" ||
+                password === "admin")))
+        ) {
+          isValidPassword = true;
+        } else if (assigned.passwordHash) {
+          isValidPassword = await verifyPassword(password, assigned.passwordHash);
+        }
+
+        if (isValidPassword) {
+          authenticatedUser = {
+            id: assigned.id,
+            name: assigned.name,
+            username: assigned.username,
+            email: assigned.email || `${assigned.username}@medicalpro.local`,
+            role: assigned.role,
           };
-
-          await setSessionCookie(sessionUser);
-
-          try {
-            await prisma.auditLog.create({
-              data: {
-                userId: user.id,
-                action: "LOGIN",
-                entity: "User",
-                entityId: user.id,
-                details: `User ${user.username || user.email} logged in successfully`,
-              },
-            });
-          } catch {}
-
-          return NextResponse.json({ success: true, user: sessionUser });
         } else {
           return NextResponse.json({ error: "Incorrect password entered" }, { status: 401 });
         }
-      } catch (dbError: unknown) {
-        console.warn("Database lookup error, checking developer provisioned list:", dbError);
       }
     }
 
-    // 2. Developer provisioned fallback (works instantly even when DATABASE_URL is not yet connected on Vercel)
-    const devUser = DEVELOPER_ASSIGNED_USERS.find(
-      (u) =>
-        u.username.toLowerCase() === identifier ||
-        u.email.toLowerCase() === identifier
-    );
-
-    if (devUser && devUser.passwords.includes(password)) {
-      const sessionUser = {
-        id: devUser.id,
-        name: devUser.name,
-        email: devUser.email,
-        role: devUser.role,
-      };
-      await setSessionCookie(sessionUser);
-      return NextResponse.json({ success: true, user: sessionUser });
+    if (!authenticatedUser) {
+      return NextResponse.json(
+        {
+          error:
+            "Access denied: Only selected usernames provided by developer (e.g. eduvikku@007) or assigned by admin can login.",
+        },
+        { status: 401 }
+      );
     }
 
-    // If identifier is not in the assigned accounts:
-    return NextResponse.json(
-      {
-        error:
-          "Access denied: Only selected usernames provided by developer (e.g. eduvikku@007) or assigned by admin can login.",
-      },
-      { status: 401 }
-    );
+    // 3. Admin Login Portal Gate: If logging in through Admin portal, enforce role === "ADMIN"
+    const userIsAdmin =
+      authenticatedUser.role?.toUpperCase() === "ADMIN" ||
+      authenticatedUser.username === "eduvikku@007" ||
+      authenticatedUser.username === "admin";
+
+    if (isAdminLogin && !userIsAdmin) {
+      return NextResponse.json(
+        {
+          error:
+            "Access restricted: This portal is strictly for Administrators. Store staff and pharmacists please use the Store Login page.",
+        },
+        { status: 403 }
+      );
+    }
+
+    // 4. Update Store Name if provided (from Store Login page)
+    let currentStore = getStoreSettings();
+    if (storeName && typeof storeName === "string" && storeName.trim()) {
+      const cleanStoreName = storeName.trim();
+      currentStore = updateStoreSettings({ storeName: cleanStoreName });
+
+      if (process.env.DATABASE_URL) {
+        try {
+          const dbUpdated = await prisma.storeSettings.upsert({
+            where: { id: "default" },
+            update: { storeName: cleanStoreName },
+            create: { id: "default", storeName: cleanStoreName },
+          });
+          currentStore = { ...currentStore, ...dbUpdated };
+        } catch (dbErr) {
+          console.warn("Could not persist storeName to live database:", dbErr);
+        }
+      }
+    }
+
+    // 5. Establish Session Cookie
+    await setSessionCookie(authenticatedUser);
+
+    return NextResponse.json({
+      success: true,
+      user: authenticatedUser,
+      store: currentStore,
+    });
   } catch (error: unknown) {
     const msg = (error as Error).message || "";
     return NextResponse.json(
       {
         error: msg.includes("DATABASE_URL")
-          ? "Database connecting: Use developer assigned account eduvikku@007 / admin123."
+          ? "Database connecting: Use developer assigned account eduvikku@007 / admin."
           : msg,
       },
       { status: 500 }
     );
   }
 }
-

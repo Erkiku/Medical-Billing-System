@@ -9,12 +9,15 @@ import { StoreProvider } from "@/context/StoreContext";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const isLoginPage = pathname === "/login";
-  const [authChecked, setAuthChecked] = useState(isLoginPage);
+  const isAuthRoute =
+    pathname === "/login" ||
+    pathname === "/admin/login" ||
+    pathname === "/admin-login";
+  const [authChecked, setAuthChecked] = useState(isAuthRoute);
 
   // Check authentication on initial load - unauthenticated users go straight to /login
   useEffect(() => {
-    if (isLoginPage) {
+    if (isAuthRoute) {
       setAuthChecked(true);
       return;
     }
@@ -31,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .catch(() => {
         router.replace("/login");
       });
-  }, [isLoginPage, router]);
+  }, [isAuthRoute, router]);
 
   // Global keyboard shortcuts (e.g., F2 for new billing)
   useEffect(() => {
@@ -45,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router]);
 
-  if (isLoginPage) {
+  if (isAuthRoute) {
     return <main className="min-h-screen bg-slate-50">{children}</main>;
   }
 

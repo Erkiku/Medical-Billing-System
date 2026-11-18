@@ -1,16 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Lock, User, AlertCircle, ArrowRight, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
+import {
+  ShieldCheck,
+  Lock,
+  User,
+  Store,
+  AlertCircle,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  ShieldAlert,
+} from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [storeName, setStoreName] = useState("R & A Medical Store");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem("medical_store_name");
+      if (cached) {
+        setStoreName(cached);
+      } else {
+        fetch("/api/settings")
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.storeName) setStoreName(data.storeName);
+          })
+          .catch(() => {});
+      }
+    } catch {}
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +49,11 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          username,
+          password,
+          storeName: storeName.trim(),
+        }),
       });
 
       const data = await res.json();
@@ -32,6 +64,14 @@ export default function LoginPage() {
       if (data.user) {
         try {
           localStorage.setItem("medical_user_info", JSON.stringify(data.user));
+        } catch {}
+      }
+
+      if (data.store) {
+        try {
+          localStorage.setItem("medical_store_info", JSON.stringify(data.store));
+          localStorage.setItem("medical_store_name", data.store.storeName);
+          window.dispatchEvent(new CustomEvent("store-updated", { detail: data.store }));
         } catch {}
       }
 
@@ -58,9 +98,9 @@ export default function LoginPage() {
 
         {/* Login Form */}
         <div className="p-8">
-          <h2 className="text-xl font-bold text-slate-800 mb-1">Welcome Back</h2>
-          <p className="text-xs text-slate-500 mb-6">
-            Sign in with your assigned credentials to access billing & stock
+          <h2 className="text-xl font-bold text-slate-800 mb-1">Store Sign In</h2>
+          <p className="text-xs text-slate-500 mb-5">
+            Enter your pharmacy store name and assigned credentials
           </p>
 
           {error && (
@@ -80,9 +120,35 @@ export default function LoginPage() {
             autoComplete="on"
             className="space-y-4"
           >
+            {/* Store Name Input Box */}
+            <div>
+              <label htmlFor="login-store-name" className="block text-xs font-semibold text-slate-700 mb-1">
+                Pharmacy / Medical Store Name *
+              </label>
+              <div className="relative">
+                <Store className="h-4 w-4 absolute left-3 top-3 text-blue-600" />
+                <input
+                  id="login-store-name"
+                  name="storeName"
+                  type="text"
+                  autoComplete="organization"
+                  spellCheck={false}
+                  required
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                  placeholder="e.g. R & A Medical Store, Apollo Pharmacy"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-semibold"
+                />
+              </div>
+              <span className="text-[10px] text-slate-400 mt-1 block">
+                This store name will update across your dashboard, bills & printed invoices.
+              </span>
+            </div>
+
+            {/* Username Input */}
             <div>
               <label htmlFor="login-username" className="block text-xs font-semibold text-slate-700 mb-1">
-                Username
+                Staff / Pharmacist Username *
               </label>
               <div className="relative">
                 <User className="h-4 w-4 absolute left-3 top-3 text-slate-400" />
@@ -97,15 +163,16 @@ export default function LoginPage() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium"
+                  placeholder="Enter assigned username"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium font-mono"
                 />
               </div>
             </div>
 
+            {/* Password Input */}
             <div>
               <label htmlFor="login-password" className="block text-xs font-semibold text-slate-700 mb-1">
-                Password
+                Password *
               </label>
               <div className="relative">
                 <Lock className="h-4 w-4 absolute left-3 top-3 text-slate-400" />
@@ -141,10 +208,22 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer mt-2"
             >
-              <span>{loading ? "Signing in..." : "Sign In to ERP"}</span>
+              <span>{loading ? "Signing in..." : "Sign In to Store ERP"}</span>
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
+
+          {/* Admin Login Portal Link */}
+          <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span className="text-slate-500">Developer or System Admin?</span>
+            <Link
+              href="/admin/login"
+              className="text-purple-700 hover:text-purple-900 font-bold inline-flex items-center gap-1 hover:underline transition-all"
+            >
+              <span>Admin Portal Login</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
       </div>
     </div>

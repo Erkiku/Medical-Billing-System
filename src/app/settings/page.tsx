@@ -16,17 +16,26 @@ import {
   Trash2,
   Lock,
   KeyRound,
+  AlertCircle,
 } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
 
 export default function SettingsPage() {
-  const { updateStoreInfo } = useStore();
+  const { updateStoreInfo, userInfo } = useStore();
+  const isAdmin =
+    userInfo?.role?.toUpperCase() === "ADMIN" ||
+    userInfo?.email?.toLowerCase().includes("eduvikku") ||
+    userInfo?.name?.toLowerCase().includes("eduvikku") ||
+    userInfo?.username?.toLowerCase() === "eduvikku@007" ||
+    userInfo?.username?.toLowerCase() === "admin";
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notificationLogs, setNotificationLogs] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [userSaving, setUserSaving] = useState(false);
+  const [userError, setUserError] = useState("");
   const [newUser, setNewUser] = useState({
     username: "",
     password: "",
@@ -110,10 +119,11 @@ export default function SettingsPage() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.username || !newUser.password) {
-      alert("Username and password are required");
+      setUserError("Username and password are required");
       return;
     }
     setUserSaving(true);
+    setUserError("");
     try {
       const res = await fetch("/api/users", {
         method: "POST",
@@ -127,10 +137,10 @@ export default function SettingsPage() {
       setShowAddUserModal(false);
       setNewUser({ username: "", password: "", name: "", role: "STAFF", email: "" });
       fetchUsers();
-      setSuccessMsg("New user login assigned successfully!");
-      setTimeout(() => setSuccessMsg(""), 4000);
+      setSuccessMsg(`Login access assigned successfully for user "${newUser.username.trim()}"!`);
+      setTimeout(() => setSuccessMsg(""), 5000);
     } catch (err: unknown) {
-      alert((err as Error).message);
+      setUserError((err as Error).message || "Failed to assign user");
     } finally {
       setUserSaving(false);
     }
@@ -434,13 +444,14 @@ export default function SettingsPage() {
         </div>
       </form>
 
-      {/* Staff & Assigned Logins Management */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      {/* Staff & Assigned Logins Management - Admin Only */}
+      {isAdmin && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
               <UserCheck className="h-4 w-4 text-blue-600" />
-              <span>Assigned Login Credentials & Access Control</span>
+              <span>Assigned Login Credentials & Access Control (Admin Only)</span>
             </h3>
             <p className="text-[11px] text-slate-500 mt-0.5">
               Only developer-assigned & admin-authorized usernames can sign in to this ERP.
@@ -448,7 +459,10 @@ export default function SettingsPage() {
           </div>
           <button
             type="button"
-            onClick={() => setShowAddUserModal(true)}
+            onClick={() => {
+              setUserError("");
+              setShowAddUserModal(true);
+            }}
             className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
           >
             <UserPlus className="h-3.5 w-3.5" />
@@ -541,18 +555,26 @@ export default function SettingsPage() {
           </table>
         </div>
       </div>
+      )}
 
-      {/* Add User Modal */}
-      {showAddUserModal && (
+      {/* Add User Modal - Admin Only */}
+      {isAdmin && showAddUserModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
             <h3 className="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
               <UserPlus className="h-4 w-4 text-blue-600" />
               <span>Assign New User Login</span>
             </h3>
-            <p className="text-xs text-slate-500 mb-4">
+            <p className="text-xs text-slate-500 mb-3">
               Create an authorized username and password for pharmacy staff to login.
             </p>
+
+            {userError && (
+              <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-medium flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{userError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
               <div>

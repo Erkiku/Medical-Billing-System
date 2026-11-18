@@ -1,81 +1,76 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-
-const DEFAULT_STORE_SETTINGS = {
-  id: "default",
-  storeName: "R & A Medical Store",
-  tagline: "Retail & Wholesale Chemists • Complete Healthcare",
-  address: "123, Main Hospital Road, Civil Lines",
-  city: "New Delhi",
-  state: "Delhi",
-  pincode: "110001",
-  phone: "+91 98765 43210",
-  email: "contact@ramedical.com",
-  gstin: "07AAAAA0000A1Z5",
-  dlNumber1: "DL-20B-123456",
-  dlNumber2: "DL-21B-654321",
-  fssaiNumber: "10012345678901",
-  terms: "1. Goods once sold will not be taken back without valid bill.\n2. Medicines must be stored under prescribed temperature.\n3. Keep medicines out of reach of children.",
-  upiId: "ramedical@upi",
-  smsGateway: "MOCK",
-};
+import { getStoreSettings, updateStoreSettings } from "@/lib/userStore";
 
 export async function GET() {
   try {
-    const settings = await prisma.storeSettings.findUnique({
-      where: { id: "default" },
-    });
-    return NextResponse.json(settings || DEFAULT_STORE_SETTINGS);
+    if (process.env.DATABASE_URL) {
+      try {
+        const settings = await prisma.storeSettings.findUnique({
+          where: { id: "default" },
+        });
+        if (settings) {
+          updateStoreSettings(settings);
+          return NextResponse.json(settings);
+        }
+      } catch (dbError) {
+        console.warn("Database storeSettings fetch warning (using cached settings):", dbError);
+      }
+    }
+
+    return NextResponse.json(getStoreSettings());
   } catch (error: unknown) {
-    console.warn("Failed to fetch store settings from database, returning default fallback:", error);
-    return NextResponse.json(DEFAULT_STORE_SETTINGS);
+    console.warn("Failed to fetch store settings, returning local fallback:", error);
+    return NextResponse.json(getStoreSettings());
   }
 }
 
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
+
+    // Always update runtime settings
+    const updatedSettings = updateStoreSettings(body);
+
     if (process.env.DATABASE_URL) {
-      const updated = await prisma.storeSettings.upsert({
-        where: { id: "default" },
-        update: {
-          storeName: body.storeName,
-          tagline: body.tagline,
-          address: body.address,
-          city: body.city,
-          state: body.state,
-          pincode: body.pincode,
-          phone: body.phone,
-          email: body.email,
-          gstin: body.gstin,
-          dlNumber1: body.dlNumber1,
-          dlNumber2: body.dlNumber2,
-          fssaiNumber: body.fssaiNumber,
-          terms: body.terms,
-          upiId: body.upiId,
-          smsGateway: body.smsGateway,
-          smsApiKey: body.smsApiKey,
-          whatsappToken: body.whatsappToken,
-          whatsappPhoneId: body.whatsappPhoneId,
-        },
-        create: {
-          id: "default",
-          ...body,
-        },
-      });
+      try {
+        const updated = await prisma.storeSettings.upsert({
+          where: { id: "default" },
+          update: {
+            ...(body.storeName ? { storeName: body.storeName } : {}),
+            ...(body.tagline !== undefined ? { tagline: body.tagline } : {}),
+            ...(body.address !== undefined ? { address: body.address } : {}),
+            ...(body.city !== undefined ? { city: body.city } : {}),
+            ...(body.state !== undefined ? { state: body.state } : {}),
+            ...(body.pincode !== undefined ? { pincode: body.pincode } : {}),
+            ...(body.phone !== undefined ? { phone: body.phone } : {}),
+            ...(body.email !== undefined ? { email: body.email } : {}),
+            ...(body.gstin !== undefined ? { gstin: body.gstin } : {}),
+            ...(body.dlNumber1 !== undefined ? { dlNumber1: body.dlNumber1 } : {}),
+            ...(body.dlNumber2 !== undefined ? { dlNumber2: body.dlNumber2 } : {}),
+            ...(body.fssaiNumber !== undefined ? { fssaiNumber: body.fssaiNumber } : {}),
+            ...(body.terms !== undefined ? { terms: body.terms } : {}),
+            ...(body.upiId !== undefined ? { upiId: body.upiId } : {}),
+            ...(body.smsGateway !== undefined ? { smsGateway: body.smsGateway } : {}),
+            ...(body.smsApiKey !== undefined ? { smsApiKey: body.smsApiKey } : {}),
+            ...(body.whatsappToken !== undefined ? { whatsappToken: body.whatsappToken } : {}),
+            ...(body.whatsappPhoneId !== undefined ? { whatsappPhoneId: body.whatsappPhoneId } : {}),
+          },
+          create: {
+            id: "default",
+            ...body,
+          },
+        });
 
-      return NextResponse.json(updated);
+        return NextResponse.json(updated);
+      } catch (dbError: any) {
+        console.warn("Database storeSettings upsert warning:", dbError?.message);
+      }
     }
 
-    return NextResponse.json({ ...DEFAULT_STORE_SETTINGS, ...body });
+    return NextResponse.json(updatedSettings);
   } catch (error: unknown) {
-    console.warn("Failed to update store settings in database, returning local copy:", error);
-    try {
-      const body = await req.json();
-      return NextResponse.json({ ...DEFAULT_STORE_SETTINGS, ...body });
-    } catch {
-      return NextResponse.json(DEFAULT_STORE_SETTINGS);
-    }
+    console.warn("Failed to update store settings in database:", error);
+    return NextResponse.json(getStoreSettings());
   }
 }
-

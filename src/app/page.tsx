@@ -17,6 +17,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { formatINR, formatDate, formatDateTime } from "@/lib/utils";
+import { useStore } from "@/context/StoreContext";
 
 interface DashboardData {
   todaySales: number;
@@ -34,6 +35,7 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  const { storeInfo } = useStore();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -128,7 +130,15 @@ export default function DashboardPage() {
       {/* Top Banner / Welcome */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-xs">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Pharmacy Operations Dashboard</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>{storeInfo?.storeName || "Active Store"}</span>
+            </span>
+          </div>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+            {storeInfo?.storeName ? `${storeInfo.storeName} — Operations Dashboard` : "Pharmacy Operations Dashboard"}
+          </h1>
           <p className="text-xs text-slate-500 mt-1">
             Real-time medical inventory, GST sales performance & customer receivables
           </p>
