@@ -147,9 +147,13 @@ export async function POST(req: Request) {
     }
 
     // 4. Update Store Name if provided (from Store Login page)
+    const cleanStoreName =
+      storeName && typeof storeName === "string" && storeName.trim()
+        ? storeName.trim()
+        : null;
+
     let currentStore = getStoreSettings();
-    if (storeName && typeof storeName === "string" && storeName.trim()) {
-      const cleanStoreName = storeName.trim();
+    if (cleanStoreName) {
       currentStore = updateStoreSettings({ storeName: cleanStoreName });
 
       if (process.env.DATABASE_URL) {
@@ -159,20 +163,30 @@ export async function POST(req: Request) {
             update: { storeName: cleanStoreName },
             create: { id: "default", storeName: cleanStoreName },
           });
-          currentStore = { ...currentStore, ...dbUpdated };
+          currentStore = { ...currentStore, ...dbUpdated, storeName: cleanStoreName };
         } catch (dbErr) {
           console.warn("Could not persist storeName to live database:", dbErr);
         }
       }
     }
 
-    // 5. Establish Session Cookie
-    await setSessionCookie(authenticatedUser);
+    const finalStoreName = cleanStoreName || currentStore.storeName;
+
+    const userWithStore = {
+      ...authenticatedUser,
+      storeName: finalStoreName,
+    };
+
+    // 5. Establish Session Cookie with storeName
+    await setSessionCookie(userWithStore, finalStoreName);
 
     return NextResponse.json({
       success: true,
-      user: authenticatedUser,
-      store: currentStore,
+      user: userWithStore,
+      store: {
+        ...currentStore,
+        storeName: finalStoreName,
+      },
     });
   } catch (error: unknown) {
     const msg = (error as Error).message || "";

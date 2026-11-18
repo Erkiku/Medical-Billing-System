@@ -25,6 +25,7 @@ export interface UserInfo {
   username?: string;
   email?: string;
   role?: string;
+  storeName?: string;
 }
 
 export const DEFAULT_STORE_INFO: StoreInfo = {
@@ -69,6 +70,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (settingsRes.ok) {
         const data = await settingsRes.json();
         if (data && data.storeName) {
+          // If a custom store name is saved in localStorage, preserve it!
+          const customStoreName = localStorage.getItem("medical_store_name");
+          if (customStoreName && customStoreName.trim()) {
+            data.storeName = customStoreName.trim();
+          }
           setStoreInfo(data);
           try {
             localStorage.setItem("medical_store_info", JSON.stringify(data));
@@ -84,6 +90,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const userData = await userRes.json();
         if (userData && userData.user) {
           setUserInfo(userData.user);
+          // If user session cookie contains active storeName, synchronize it!
+          if (userData.user.storeName && userData.user.storeName.trim()) {
+            const userStoreName = userData.user.storeName.trim();
+            try {
+              localStorage.setItem("medical_store_name", userStoreName);
+            } catch {}
+            setStoreInfo((prev) =>
+              prev ? { ...prev, storeName: userStoreName } : { ...DEFAULT_STORE_INFO, storeName: userStoreName }
+            );
+          }
           try {
             localStorage.setItem("medical_user_info", JSON.stringify(userData.user));
           } catch {}
@@ -96,7 +112,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // Load cached info first for instant rendering
     try {
       const cachedStore = localStorage.getItem("medical_store_info");
-      if (cachedStore) setStoreInfo(JSON.parse(cachedStore));
+      const cachedStoreName = localStorage.getItem("medical_store_name");
+      if (cachedStore) {
+        const parsed = JSON.parse(cachedStore);
+        if (cachedStoreName && cachedStoreName.trim()) {
+          parsed.storeName = cachedStoreName.trim();
+        }
+        setStoreInfo(parsed);
+      } else if (cachedStoreName && cachedStoreName.trim()) {
+        setStoreInfo({ ...DEFAULT_STORE_INFO, storeName: cachedStoreName.trim() });
+      }
+
       const cachedUser = localStorage.getItem("medical_user_info");
       if (cachedUser) setUserInfo(JSON.parse(cachedUser));
     } catch {}
@@ -107,9 +133,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const handleStoreUpdated = (e: Event) => {
       const customEvent = e as CustomEvent<StoreInfo>;
       if (customEvent.detail) {
-        setStoreInfo(customEvent.detail);
+        const updated = customEvent.detail;
+        if (updated.storeName) {
+          try {
+            localStorage.setItem("medical_store_name", updated.storeName);
+          } catch {}
+        }
+        setStoreInfo(updated);
         try {
-          localStorage.setItem("medical_store_info", JSON.stringify(customEvent.detail));
+          localStorage.setItem("medical_store_info", JSON.stringify(updated));
         } catch {}
       } else {
         fetchStoreAndUser();
@@ -121,6 +153,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [fetchStoreAndUser]);
 
   const updateStoreInfo = (info: StoreInfo) => {
+    if (info.storeName) {
+      try {
+        localStorage.setItem("medical_store_name", info.storeName);
+      } catch {}
+    }
     setStoreInfo(info);
     try {
       localStorage.setItem("medical_store_info", JSON.stringify(info));
@@ -143,6 +180,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useStore() {
-  return useContext(StoreContext);
+  const context = useContext(StoreContext);
+  if (!context) {
+    throw new Error("useStore must be used within a StoreProvider");
+  }
+  return context;
 }
-

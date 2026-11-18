@@ -43,6 +43,10 @@ export default function AdminLoginPage() {
       if (data.store) {
         try {
           localStorage.setItem("medical_store_info", JSON.stringify(data.store));
+          if (data.store.storeName) {
+            localStorage.setItem("medical_store_name", data.store.storeName);
+            document.cookie = `medical_store_name=${encodeURIComponent(data.store.storeName)}; path=/; max-age=2592000; SameSite=Lax`;
+          }
           window.dispatchEvent(new CustomEvent("store-updated", { detail: data.store }));
         } catch {}
       }

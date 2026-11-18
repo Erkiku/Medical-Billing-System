@@ -61,19 +61,22 @@ export default function LoginPage() {
         throw new Error(data.error || "Login failed");
       }
 
+      const finalStoreName = (data.store?.storeName || storeName).trim();
+
       if (data.user) {
         try {
-          localStorage.setItem("medical_user_info", JSON.stringify(data.user));
+          localStorage.setItem("medical_user_info", JSON.stringify({ ...data.user, storeName: finalStoreName }));
         } catch {}
       }
 
-      if (data.store) {
-        try {
-          localStorage.setItem("medical_store_info", JSON.stringify(data.store));
-          localStorage.setItem("medical_store_name", data.store.storeName);
-          window.dispatchEvent(new CustomEvent("store-updated", { detail: data.store }));
-        } catch {}
-      }
+      try {
+        localStorage.setItem("medical_store_name", finalStoreName);
+        if (data.store) {
+          localStorage.setItem("medical_store_info", JSON.stringify({ ...data.store, storeName: finalStoreName }));
+        }
+        document.cookie = `medical_store_name=${encodeURIComponent(finalStoreName)}; path=/; max-age=2592000; SameSite=Lax`;
+        window.dispatchEvent(new CustomEvent("store-updated", { detail: { ...(data.store || {}), storeName: finalStoreName } }));
+      } catch {}
 
       router.push("/");
       router.refresh();

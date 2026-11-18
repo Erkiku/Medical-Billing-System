@@ -1,24 +1,43 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 import { getStoreSettings, updateStoreSettings } from "@/lib/userStore";
 
 export async function GET() {
   try {
+    const cookieStore = await cookies();
+    const rawCookie = cookieStore.get("medical_store_name")?.value;
+    const cookieStoreName = rawCookie ? decodeURIComponent(rawCookie).trim() : null;
+    const currentUser = await getCurrentUser();
+    const activeStoreName = currentUser?.storeName?.trim() || cookieStoreName;
+
+    let settings: any = null;
+
     if (process.env.DATABASE_URL) {
       try {
-        const settings = await prisma.storeSettings.findUnique({
+        settings = await prisma.storeSettings.findUnique({
           where: { id: "default" },
         });
-        if (settings) {
-          updateStoreSettings(settings);
-          return NextResponse.json(settings);
-        }
       } catch (dbError) {
         console.warn("Database storeSettings fetch warning (using cached settings):", dbError);
       }
     }
 
-    return NextResponse.json(getStoreSettings());
+    if (!settings) {
+      settings = { ...getStoreSettings() };
+    }
+
+    // Prioritize active logged-in store name
+    if (activeStoreName) {
+      settings = {
+        ...settings,
+        storeName: activeStoreName,
+      };
+      updateStoreSettings({ storeName: activeStoreName });
+    }
+
+    return NextResponse.json(settings);
   } catch (error: unknown) {
     console.warn("Failed to fetch store settings, returning local fallback:", error);
     return NextResponse.json(getStoreSettings());
@@ -28,6 +47,20 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
+    const cleanStoreName = body.storeName ? String(body.storeName).trim() : undefined;
+
+    if (cleanStoreName) {
+      try {
+        const cookieStore = await cookies();
+        cookieStore.set("medical_store_name", encodeURIComponent(cleanStoreName), {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 30,
+        });
+      } catch {}
+    }
 
     // Always update runtime settings
     const updatedSettings = updateStoreSettings(body);
@@ -37,7 +70,7 @@ export async function PUT(req: Request) {
         const updated = await prisma.storeSettings.upsert({
           where: { id: "default" },
           update: {
-            ...(body.storeName ? { storeName: body.storeName } : {}),
+            ...(cleanStoreName ? { storeName: cleanStoreName } : {}),
             ...(body.tagline !== undefined ? { tagline: body.tagline } : {}),
             ...(body.address !== undefined ? { address: body.address } : {}),
             ...(body.city !== undefined ? { city: body.city } : {}),
@@ -59,10 +92,14 @@ export async function PUT(req: Request) {
           create: {
             id: "default",
             ...body,
+            ...(cleanStoreName ? { storeName: cleanStoreName } : {}),
           },
         });
 
-        return NextResponse.json(updated);
+        return NextResponse.json({
+          ...updated,
+          ...(cleanStoreName ? { storeName: cleanStoreName } : {}),
+        });
       } catch (dbError: any) {
         console.warn("Database storeSettings upsert warning:", dbError?.message);
       }

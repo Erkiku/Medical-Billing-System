@@ -12,8 +12,10 @@ const COOKIE_NAME = "medical_session";
 export interface SessionUser {
   id: string;
   name: string;
+  username?: string;
   email: string;
   role: string;
+  storeName?: string;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -28,8 +30,10 @@ export async function createSessionToken(user: SessionUser): Promise<string> {
   return new SignJWT({
     id: user.id,
     name: user.name,
+    username: user.username,
     email: user.email,
     role: user.role,
+    storeName: user.storeName,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -43,8 +47,10 @@ export async function verifySessionToken(token: string): Promise<SessionUser | n
     return {
       id: payload.id as string,
       name: payload.name as string,
+      username: (payload.username as string) || undefined,
       email: payload.email as string,
       role: payload.role as string,
+      storeName: (payload.storeName as string) || undefined,
     };
   } catch {
     return null;
@@ -62,9 +68,17 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   }
 }
 
-export async function setSessionCookie(user: SessionUser) {
-  const token = await createSessionToken(user);
+export async function setSessionCookie(user: SessionUser, storeName?: string) {
+  const finalStoreName = storeName || user.storeName;
+  const sessionUser: SessionUser = {
+    ...user,
+    storeName: finalStoreName,
+  };
+
+  const token = await createSessionToken(sessionUser);
   const cookieStore = await cookies();
+
+  // 1. Session auth cookie
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -72,10 +86,21 @@ export async function setSessionCookie(user: SessionUser) {
     path: "/",
     maxAge: 60 * 60 * 24 * 7, // 7 days
   });
+
+  // 2. Client & Server readable active store name cookie
+  if (finalStoreName) {
+    cookieStore.set("medical_store_name", encodeURIComponent(finalStoreName), {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    });
+  }
 }
 
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
+  cookieStore.delete("medical_store_name");
 }
-
