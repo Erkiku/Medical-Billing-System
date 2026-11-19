@@ -58,6 +58,7 @@ export default function LoginPage() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        // NEVER show server error details — always generic message
         throw new Error("Authentication Access Denied");
       }
 
@@ -124,8 +125,6 @@ export default function LoginPage() {
           )}
 
           <form
-            action="/login"
-            method="POST"
             onSubmit={handleSubmit}
             autoComplete="on"
             className="space-y-4"

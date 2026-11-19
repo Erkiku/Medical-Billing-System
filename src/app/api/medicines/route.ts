@@ -104,7 +104,7 @@ export async function POST(req: Request) {
           company,
           categoryId: categoryId || null,
           barcode: barcode || null,
-          packSize: packSize || "1x10",
+          packSize: packSize || "1×10",
           hsnCode: hsnCode || "3004",
           schedule: schedule || "NONE",
           purchasePrice: Number(purchasePrice) || 0,
@@ -145,7 +145,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error: unknown) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.error("POST /api/medicines error:", error);
+    return NextResponse.json({ error: "Failed to create medicine. Please try again." }, { status: 500 });
   }
 }
 

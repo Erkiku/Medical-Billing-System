@@ -53,7 +53,7 @@ export default function MedicinesPage() {
     company: "",
     categoryId: "",
     barcode: "",
-    packSize: "1x10",
+    packSize: "1×10",
     schedule: "NONE",
     purchasePrice: "",
     mrp: "",
@@ -135,7 +135,7 @@ export default function MedicinesPage() {
         company: "",
         categoryId: "",
         barcode: "",
-        packSize: "1x10",
+        packSize: "1×10",
         schedule: "NONE",
         purchasePrice: "",
         mrp: "",
@@ -719,8 +719,8 @@ export default function MedicinesPage() {
                   <input
                     type="text"
                     value={medForm.packSize}
-                    onChange={(e) => setMedForm({ ...medForm, packSize: e.target.value })}
-                    placeholder="1x10 or 1x15"
+                    onChange={(e) => setMedForm({ ...medForm, packSize: e.target.value.replace(/x/gi, "×") })}
+                    placeholder="1×10 or 1×15"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
                   />
                 </div>
