@@ -4,15 +4,16 @@ import prisma from "@/lib/prisma";
 export async function GET() {
   try {
     const categories = await prisma.category.findMany({
-      include: {
-        _count: { select: { medicines: true } },
+      select: {
+        id: true,
+        name: true,
       },
       orderBy: { name: "asc" },
     });
     return NextResponse.json(categories);
   } catch (error: unknown) {
     console.error("Categories query failed:", error);
-    return NextResponse.json({ error: "Could not load categories from the database." }, { status: 500 });
+    return NextResponse.json({ error: "Could not load categories from the database." }, { status: 503 });
   }
 }
 
