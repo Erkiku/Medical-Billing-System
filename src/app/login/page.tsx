@@ -56,9 +56,9 @@ export default function LoginPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "Login failed");
+        throw new Error("Authentication Access Denied");
       }
 
       const finalStoreName = (data.store?.storeName || storeName).trim();
@@ -81,7 +81,7 @@ export default function LoginPage() {
       router.push("/");
       router.refresh();
     } catch (err: unknown) {
-      setError((err as Error).message);
+      setError("Authentication Access Denied");
     } finally {
       setLoading(false);
     }

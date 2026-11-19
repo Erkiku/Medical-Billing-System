@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { verifyPassword, setSessionCookie } from "@/lib/auth";
 import { getStoreSettings, updateStoreSettings } from "@/lib/userStore";
 
+const GENERIC_AUTH_ERROR = "Authentication Access Denied";
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -11,8 +13,8 @@ export async function POST(req: Request) {
 
     if (!identifier || !password) {
       return NextResponse.json(
-        { error: "Username and password are required to login." },
-        { status: 400 }
+        { error: GENERIC_AUTH_ERROR },
+        { status: 401 }
       );
     }
 
@@ -28,10 +30,11 @@ export async function POST(req: Request) {
         });
 
         if (allowed) {
+          // If deactivated in database, reject with generic denied error
           if (!allowed.active) {
             return NextResponse.json(
-              { error: "Account deactivated: This login has been disabled in the database." },
-              { status: 403 }
+              { error: GENERIC_AUTH_ERROR },
+              { status: 401 }
             );
           }
 
@@ -59,30 +62,28 @@ export async function POST(req: Request) {
               storeName: allowed.storeName ? allowed.storeName.trim() : null,
             };
           } else {
-            return NextResponse.json({ error: "Incorrect password entered" }, { status: 401 });
+            return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
           }
         }
       } catch (dbError: unknown) {
         console.error("AllowedLogin lookup error:", dbError);
         return NextResponse.json(
-          { error: "Database error during authentication. Please try again." },
-          { status: 500 }
+          { error: GENERIC_AUTH_ERROR },
+          { status: 401 }
         );
       }
     } else {
+      console.error("DATABASE_URL is missing in environment");
       return NextResponse.json(
-        { error: "Database is not connected. DATABASE_URL is missing." },
-        { status: 500 }
+        { error: GENERIC_AUTH_ERROR },
+        { status: 401 }
       );
     }
 
     // If not found in AllowedLogin table or credentials did not match, deny access
     if (!authenticatedUser) {
       return NextResponse.json(
-        {
-          error:
-            "Access denied: Username not found in AllowedLogin table. Only active accounts configured in database can sign in.",
-        },
+        { error: GENERIC_AUTH_ERROR },
         { status: 401 }
       );
     }
@@ -133,7 +134,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: unknown) {
-    const msg = (error as Error).message || "Internal server error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("Login route internal error:", error);
+    return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
   }
 }
