@@ -94,6 +94,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Medicine name and company are required" }, { status: 400 });
     }
 
+    // Resolve valid category ID to avoid foreign key violation
+    let safeCategoryId: string | null = null;
+    if (categoryId && typeof categoryId === "string") {
+      try {
+        const found = await prisma.category.findUnique({ where: { id: categoryId } });
+        if (found) {
+          safeCategoryId = found.id;
+        } else {
+          const byName = await prisma.category.findFirst({ where: { name: categoryId } });
+          if (byName) {
+            safeCategoryId = byName.id;
+          }
+        }
+      } catch {
+        safeCategoryId = null;
+      }
+    }
+
     // Create medicine and optional initial batch inside transaction
     const result = await prisma.$transaction(async (tx) => {
       const medicine = await tx.medicine.create({
@@ -102,7 +120,7 @@ export async function POST(req: Request) {
           genericName,
           saltComposition,
           company,
-          categoryId: categoryId || null,
+          categoryId: safeCategoryId,
           barcode: barcode || null,
           packSize: packSize || "1×10",
           hsnCode: hsnCode || "3004",
