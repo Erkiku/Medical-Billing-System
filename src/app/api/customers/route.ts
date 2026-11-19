@@ -24,8 +24,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json(customers);
   } catch (error: unknown) {
-    console.warn("Customers query error, returning empty list:", error);
-    return NextResponse.json([]);
+    console.error("Customers query failed:", error);
+    return NextResponse.json({ error: "Customers could not be loaded from the database." }, { status: 503 });
   }
 }
 

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { formatINR, formatDate, formatDateTime } from "@/lib/utils";
 import { useStore } from "@/context/StoreContext";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 interface DashboardData {
   todaySales: number;
@@ -39,9 +40,9 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchStats = () => {
-    setLoading(true);
-    fetch("/api/dashboard/stats")
+  const fetchStats = (silent = false) => {
+    if (!silent) setLoading(true);
+    fetch("/api/dashboard/stats", { cache: "no-store" })
       .then((res) => {
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
@@ -108,6 +109,7 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchStats();
   }, []);
+  useLiveRefresh(() => fetchStats(true));
 
   if (loading && !data) {
     return (

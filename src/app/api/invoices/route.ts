@@ -45,8 +45,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json(invoices);
   } catch (error: unknown) {
-    console.warn("Invoices query error, returning empty list:", error);
-    return NextResponse.json([]);
+    console.error("Invoices query failed:", error);
+    return NextResponse.json({ error: "Invoices could not be loaded from the database." }, { status: 503 });
   }
 }
 

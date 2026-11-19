@@ -69,21 +69,18 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
-    if (process.env.DATABASE_URL) {
-      const notifications = await prisma.notification.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 50,
-        include: {
-          customer: { select: { name: true, mobile: true } },
-          invoice: { select: { invoiceNumber: true } },
-        },
-      });
-      return NextResponse.json(notifications);
-    }
-    return NextResponse.json([]);
+    const notifications = await prisma.notification.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        customer: { select: { name: true, mobile: true } },
+        invoice: { select: { invoiceNumber: true } },
+      },
+    });
+    return NextResponse.json(notifications);
   } catch (error: unknown) {
-    console.warn("Notifications query error, returning empty list:", error);
-    return NextResponse.json([]);
+    console.error("Notifications query failed:", error);
+    return NextResponse.json({ error: "Notifications could not be loaded from the database." }, { status: 503 });
   }
 }
 

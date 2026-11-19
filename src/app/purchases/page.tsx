@@ -13,6 +13,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { formatINR, formatDate } from "@/lib/utils";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<any[]>([]);
@@ -45,9 +46,9 @@ export default function PurchasesPage() {
     },
   ]);
 
-  const fetchPurchases = () => {
-    setLoading(true);
-    fetch("/api/purchases")
+  const fetchPurchases = (silent = false) => {
+    if (!silent) setLoading(true);
+    fetch("/api/purchases", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         setPurchases(Array.isArray(data) ? data : []);
@@ -62,15 +63,16 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     fetchPurchases();
-    fetch("/api/suppliers")
+    fetch("/api/suppliers", { cache: "no-store" })
       .then((res) => res.json())
       .then((sups) => setSuppliers(Array.isArray(sups) ? sups : []))
       .catch(() => setSuppliers([]));
-    fetch("/api/medicines")
+    fetch("/api/medicines", { cache: "no-store" })
       .then((res) => res.json())
       .then((meds) => setMedicines(Array.isArray(meds) ? meds : []))
       .catch(() => setMedicines([]));
   }, []);
+  useLiveRefresh(() => fetchPurchases(true));
 
   const handleAddItemRow = () => {
     setItems([

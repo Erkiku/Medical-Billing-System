@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { getStoreSettings, updateStoreSettings } from "@/lib/userStore";
+import { updateStoreSettings } from "@/lib/userStore";
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -80,6 +80,20 @@ async function upsertSettingsViaSupabaseREST(data: Record<string, any>): Promise
   return null;
 }
 
+async function persistStoreNameCookie(storeName?: string) {
+  if (!storeName) return;
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set("medical_store_name", encodeURIComponent(storeName), {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  } catch {}
+}
+
 export async function GET() {
   try {
     const cookieStore = await cookies();
@@ -111,9 +125,11 @@ export async function GET() {
       settings = await fetchSettingsFromSupabaseREST();
     }
 
-    // Method 3: Local in-memory fallback
     if (!settings) {
-      settings = { ...getStoreSettings() };
+      return NextResponse.json(
+        { error: "Store settings could not be loaded from the database." },
+        { status: 503 }
+      );
     }
 
     // Prioritize active logged-in store name
@@ -127,8 +143,11 @@ export async function GET() {
 
     return NextResponse.json(settings);
   } catch (error: unknown) {
-    console.warn("Failed to fetch store settings, returning local fallback:", error);
-    return NextResponse.json(getStoreSettings());
+    console.error("Failed to fetch store settings:", error);
+    return NextResponse.json(
+      { error: "Store settings could not be loaded from the database." },
+      { status: 503 }
+    );
   }
 }
 
@@ -136,22 +155,6 @@ export async function PUT(req: Request) {
   try {
     const body = await req.json();
     const cleanStoreName = body.storeName ? String(body.storeName).trim() : undefined;
-
-    if (cleanStoreName) {
-      try {
-        const cookieStore = await cookies();
-        cookieStore.set("medical_store_name", encodeURIComponent(cleanStoreName), {
-          httpOnly: false,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60 * 60 * 24 * 30,
-        });
-      } catch {}
-    }
-
-    // Always update runtime settings
-    const updatedSettings = updateStoreSettings(body);
 
     const updatePayload: Record<string, any> = {};
     if (cleanStoreName) updatePayload.storeName = cleanStoreName;
@@ -185,6 +188,8 @@ export async function PUT(req: Request) {
             ...(cleanStoreName ? { storeName: cleanStoreName } : {}),
           },
         });
+        await persistStoreNameCookie(cleanStoreName);
+        updateStoreSettings(updated);
 
         return NextResponse.json({
           ...updated,
@@ -198,15 +203,24 @@ export async function PUT(req: Request) {
     // Method 2: Supabase REST fallback
     const restResult = await upsertSettingsViaSupabaseREST(updatePayload);
     if (restResult) {
-      return NextResponse.json({
+      const persistedSettings = {
         ...restResult,
         ...(cleanStoreName ? { storeName: cleanStoreName } : {}),
-      });
+      };
+      await persistStoreNameCookie(cleanStoreName);
+      updateStoreSettings(persistedSettings);
+      return NextResponse.json(persistedSettings);
     }
 
-    return NextResponse.json(updatedSettings);
+    return NextResponse.json(
+      { error: "Store settings could not be saved to the database." },
+      { status: 503 }
+    );
   } catch (error: unknown) {
     console.warn("Failed to update store settings in database:", error);
-    return NextResponse.json(getStoreSettings());
+    return NextResponse.json(
+      { error: "Store settings could not be saved to the database." },
+      { status: 503 }
+    );
   }
 }

@@ -67,8 +67,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json(results);
   } catch (error: unknown) {
-    console.warn("Medicine search query error, returning empty list:", error);
-    return NextResponse.json([]);
+    console.error("Medicine search query failed:", error);
+    return NextResponse.json({ error: "Medicine search could not be loaded from the database." }, { status: 503 });
   }
 }
 

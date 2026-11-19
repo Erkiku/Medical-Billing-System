@@ -17,10 +17,14 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatINR, formatDate, isExpired, isNearExpiry } from "@/lib/utils";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 export default function MedicinesPage() {
   const [medicines, setMedicines] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [categoriesError, setCategoriesError] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -78,13 +82,13 @@ export default function MedicinesPage() {
 
   const [saving, setSaving] = useState(false);
 
-  const fetchMedicines = () => {
-    setLoading(true);
+  const fetchMedicines = (silent = false) => {
+    if (!silent) setLoading(true);
     let url = `/api/medicines?search=${encodeURIComponent(search)}`;
     if (selectedCategory) url += `&categoryId=${selectedCategory}`;
     if (selectedSchedule) url += `&schedule=${selectedSchedule}`;
 
-    fetch(url)
+    fetch(url, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         setMedicines(Array.isArray(data) ? data : []);
@@ -97,13 +101,55 @@ export default function MedicinesPage() {
       });
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch("/api/categories", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not load categories.");
+      setCategories(Array.isArray(data) ? data : []);
+      setCategoriesError("");
+    } catch (error) {
+      setCategoriesError((error as Error).message);
+    }
+  };
+
   useEffect(() => {
     fetchMedicines();
-    fetch("/api/categories")
-      .then((res) => res.json())
-      .then((cats) => setCategories(Array.isArray(cats) ? cats : []))
-      .catch(() => setCategories([]));
   }, [selectedCategory, selectedSchedule]);
+  useLiveRefresh(() => fetchMedicines(true));
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+  useLiveRefresh(fetchCategories);
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+
+    setSavingCategory(true);
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not save category.");
+
+      setCategories((current) => {
+        const alreadyLoaded = current.some((category) => category.id === data.id);
+        return alreadyLoaded ? current : [...current, data].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      setMedForm((current) => ({ ...current, categoryId: data.id }));
+      setNewCategoryName("");
+      setCategoriesError("");
+    } catch (error) {
+      setCategoriesError((error as Error).message);
+    } finally {
+      setSavingCategory(false);
+    }
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -687,6 +733,27 @@ export default function MedicinesPage() {
                       </option>
                     ))}
                   </select>
+                  {categoriesError && (
+                    <p role="alert" className="mt-1 text-xs text-rose-700">{categoriesError}</p>
+                  )}
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="text"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Add a category"
+                      aria-label="New medicine category"
+                      className="min-w-0 flex-1 px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateCategory}
+                      disabled={!newCategoryName.trim() || savingCategory}
+                      className="px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold disabled:opacity-50"
+                    >
+                      {savingCategory ? "Saving..." : "Add & select"}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">

@@ -14,16 +14,16 @@ import {
   Calendar,
 } from "lucide-react";
 import { formatINR, numberToIndianWords, formatDate, formatDateTime } from "@/lib/utils";
-import { useStore } from "@/context/StoreContext";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const { storeInfo } = useStore();
   const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch(`/api/invoices/${resolvedParams.id}`)
+  const fetchInvoice = (silent = false) => {
+    if (!silent) setLoading(true);
+    fetch(`/api/invoices/${resolvedParams.id}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((resData) => {
         setData(resData);
@@ -33,7 +33,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         console.error(err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchInvoice();
   }, [resolvedParams.id]);
+  useLiveRefresh(() => fetchInvoice(true));
 
   const handlePrint = () => {
     window.print();
@@ -74,7 +79,6 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const { invoice, store } = data;
-  const currentStore = (store && store.storeName) ? store : (storeInfo || store);
   const isPaid = invoice.paymentStatus === "PAID";
   const isUnpaid = invoice.paymentStatus === "UNPAID";
   const isPartial = invoice.paymentStatus === "PARTIAL";
@@ -136,20 +140,20 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         {/* 1. Store Header */}
         <div className="border-b-2 border-slate-900 pb-4 text-center">
           <h1 className="text-2xl font-black tracking-tight uppercase text-slate-900">
-            {currentStore?.storeName || "R & A MEDICAL STORE"}
+            {store?.storeName || "R & A MEDICAL STORE"}
           </h1>
           <p className="text-xs font-medium text-slate-600 mt-0.5">
-            {currentStore?.tagline || "Retail & Wholesale Chemists • Complete Healthcare"}
+            {store?.tagline || "Retail & Wholesale Chemists • Complete Healthcare"}
           </p>
           <p className="text-xs text-slate-700 mt-1">
-            {currentStore?.address}, {currentStore?.city}, {currentStore?.state} - {currentStore?.pincode}
+            {store?.address}, {store?.city}, {store?.state} - {store?.pincode}
           </p>
-          <p className="text-xs text-slate-700">Phone: {currentStore?.phone} | Email: {currentStore?.email}</p>
+          <p className="text-xs text-slate-700">Phone: {store?.phone} | Email: {store?.email}</p>
 
           <div className="mt-2 pt-2 border-t border-slate-200 flex flex-wrap justify-center gap-x-6 gap-y-1 text-[11px] font-semibold text-slate-700">
-            <span>GSTIN: {currentStore?.gstin || "07AAAAA0000A1Z5"}</span>
-            <span>D.L. No: {currentStore?.dlNumber1 || "DL-20B-123456"} / {currentStore?.dlNumber2 || "DL-21B-654321"}</span>
-            {currentStore?.fssaiNumber && <span>FSSAI: {currentStore.fssaiNumber}</span>}
+            <span>GSTIN: {store?.gstin || "07AAAAA0000A1Z5"}</span>
+            <span>D.L. No: {store?.dlNumber1 || "DL-20B-123456"} / {store?.dlNumber2 || "DL-21B-654321"}</span>
+            {store?.fssaiNumber && <span>FSSAI: {store.fssaiNumber}</span>}
           </div>
         </div>
 

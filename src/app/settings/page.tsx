@@ -13,12 +13,14 @@ import {
   CreditCard,
 } from "lucide-react";
 import { useStore } from "@/context/StoreContext";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 export default function SettingsPage() {
   const { updateStoreInfo } = useStore();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [formDirty, setFormDirty] = useState(false);
   const [notificationLogs, setNotificationLogs] = useState<any[]>([]);
   const [form, setForm] = useState({
     storeName: "",
@@ -42,10 +44,14 @@ export default function SettingsPage() {
   });
   const [successMsg, setSuccessMsg] = useState("");
 
-  const fetchSettings = () => {
-    setLoading(true);
-    fetch("/api/settings")
-      .then((res) => res.json())
+  const fetchSettings = (silent = false) => {
+    if (!silent) setLoading(true);
+    fetch("/api/settings", { cache: "no-store" })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not load store settings.");
+        return data;
+      })
       .then((data) => {
         if (data) {
           if (data.storeName) updateStoreInfo(data);
@@ -83,6 +89,14 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchSettings();
   }, []);
+  useEffect(() => {
+    const markDirty = () => setFormDirty(true);
+    window.addEventListener("input", markDirty);
+    return () => window.removeEventListener("input", markDirty);
+  }, []);
+  useLiveRefresh(() => {
+    if (!formDirty) fetchSettings(true);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +116,7 @@ export default function SettingsPage() {
 
       const updatedData = await res.json();
       updateStoreInfo(updatedData);
+      setFormDirty(false);
 
       setSuccessMsg("Settings updated successfully! Changes will reflect on all future A4 printed invoices.");
       setTimeout(() => setSuccessMsg(""), 4000);

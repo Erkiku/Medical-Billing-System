@@ -16,6 +16,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { formatINR, formatDate, formatDateTime } from "@/lib/utils";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -39,9 +40,9 @@ export default function CustomersPage() {
   const [custForm, setCustForm] = useState({ name: "", mobile: "", email: "", address: "" });
   const [custSaving, setCustSaving] = useState(false);
 
-  const fetchCustomers = () => {
-    setLoading(true);
-    fetch(`/api/customers?search=${encodeURIComponent(search)}`)
+  const fetchCustomers = (silent = false) => {
+    if (!silent) setLoading(true);
+    fetch(`/api/customers?search=${encodeURIComponent(search)}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         setCustomers(Array.isArray(data) ? data : []);
@@ -57,6 +58,7 @@ export default function CustomersPage() {
   useEffect(() => {
     fetchCustomers();
   }, []);
+  useLiveRefresh(() => fetchCustomers(true));
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

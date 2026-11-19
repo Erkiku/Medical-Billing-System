@@ -14,8 +14,8 @@ export async function GET() {
     });
     return NextResponse.json(purchases);
   } catch (error: unknown) {
-    console.warn("Purchases query error, returning empty list:", error);
-    return NextResponse.json([]);
+    console.error("Purchases query failed:", error);
+    return NextResponse.json({ error: "Purchases could not be loaded from the database." }, { status: 503 });
   }
 }
 

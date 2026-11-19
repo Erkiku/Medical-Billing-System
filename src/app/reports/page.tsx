@@ -16,6 +16,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { formatINR, formatDate, formatDateTime } from "@/lib/utils";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 function ReportsContent() {
   const searchParams = useSearchParams();
@@ -29,9 +30,9 @@ function ReportsContent() {
   const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchReport = () => {
-    setLoading(true);
-    fetch(`/api/reports?type=${reportType}&startDate=${startDate}&endDate=${endDate}`)
+  const fetchReport = (silent = false) => {
+    if (!silent) setLoading(true);
+    fetch(`/api/reports?type=${reportType}&startDate=${startDate}&endDate=${endDate}`, { cache: "no-store" })
       .then((res) => res.json())
       .then((resData) => {
         setData(resData);
@@ -46,6 +47,7 @@ function ReportsContent() {
   useEffect(() => {
     fetchReport();
   }, [reportType]);
+  useLiveRefresh(() => fetchReport(true));
 
   const handlePrint = () => {
     window.print();

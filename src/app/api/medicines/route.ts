@@ -62,8 +62,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json(enriched);
   } catch (error: unknown) {
-    console.warn("Medicines query error, returning empty list:", error);
-    return NextResponse.json([]);
+    console.error("Medicines query failed:", error);
+    return NextResponse.json({ error: "Could not load medicines from the database." }, { status: 500 });
   }
 }
 
@@ -146,7 +146,7 @@ export async function POST(req: Request) {
     return NextResponse.json(result, { status: 201 });
   } catch (error: unknown) {
     console.error("POST /api/medicines error:", error);
-    return NextResponse.json({ error: "Failed to create medicine. Please try again." }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message || "Failed to save medicine to the database." }, { status: 500 });
   }
 }
 

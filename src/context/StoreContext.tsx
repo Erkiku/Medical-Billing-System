@@ -66,7 +66,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const fetchStoreAndUser = useCallback(async () => {
     try {
       // 1. Fetch store settings
-      const settingsRes = await fetch("/api/settings");
+      const settingsRes = await fetch("/api/settings", { cache: "no-store" });
       if (settingsRes.ok) {
         const data = await settingsRes.json();
         if (data && data.storeName) {
@@ -149,7 +149,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
 
     window.addEventListener("store-updated", handleStoreUpdated);
-    return () => window.removeEventListener("store-updated", handleStoreUpdated);
+    const refreshTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") fetchStoreAndUser();
+    }, 15000);
+    return () => {
+      window.removeEventListener("store-updated", handleStoreUpdated);
+      window.clearInterval(refreshTimer);
+    };
   }, [fetchStoreAndUser]);
 
   const updateStoreInfo = (info: StoreInfo) => {

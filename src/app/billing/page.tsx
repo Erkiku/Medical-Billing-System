@@ -19,6 +19,7 @@ import {
   BadgeAlert,
 } from "lucide-react";
 import { formatINR, numberToIndianWords, formatDate } from "@/lib/utils";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 interface BatchInfo {
   id: string;
@@ -135,7 +136,7 @@ export default function BillingPage() {
 
     const timer = setTimeout(() => {
       setSearchLoading(true);
-      fetch(`/api/medicines/search?q=${encodeURIComponent(searchQuery)}`)
+      fetch(`/api/medicines/search?q=${encodeURIComponent(searchQuery)}`, { cache: "no-store" })
         .then((res) => res.json())
         .then((data) => {
           setSearchResults(Array.isArray(data) ? data : []);
@@ -149,6 +150,17 @@ export default function BillingPage() {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useLiveRefresh(() => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    fetch(`/api/medicines/search?q=${encodeURIComponent(query)}`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setSearchResults(data);
+      })
+      .catch(() => {});
+  });
 
   // Select a medicine from search dropdown
   const handleSelectMedicine = (med: MedicineResult) => {

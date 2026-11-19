@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { hashPassword, getCurrentUser } from "@/lib/auth";
 import {
-  getAssignedUsers,
-  addAssignedUser,
   findAssignedUser,
 } from "@/lib/userStore";
 
@@ -25,18 +23,16 @@ export async function GET() {
           orderBy: { createdAt: "asc" },
         });
 
-        if (dbUsers && dbUsers.length > 0) {
-          return NextResponse.json(dbUsers);
-        }
+        return NextResponse.json(dbUsers);
       } catch (dbError) {
-        console.warn("Database user query warning (falling back to assigned users):", dbError);
+        console.error("Database user query failed:", dbError);
       }
     }
 
-    return NextResponse.json(getAssignedUsers());
+    return NextResponse.json({ error: "Users could not be loaded from the database." }, { status: 503 });
   } catch (error: unknown) {
     console.error("Error fetching users:", error);
-    return NextResponse.json(getAssignedUsers());
+    return NextResponse.json({ error: "Users could not be loaded from the database." }, { status: 503 });
   }
 }
 
@@ -124,28 +120,20 @@ export async function POST(req: Request) {
           },
         });
       } catch (dbError: any) {
-        console.warn("Database user creation failed (using memory store):", dbError?.message);
-        // Resilient fallback: Do NOT crash or return raw database pooler error
+        console.error("Database user creation failed:", dbError?.message);
       }
     }
 
-    // 3. Always register in userStore so authentication succeeds instantly
-    const storeUser = addAssignedUser({
-      id: createdUser?.id || `usr-${Date.now()}`,
-      name: cleanName,
-      username: cleanUsername,
-      email: cleanEmail,
-      role: cleanRole,
-      active: true,
-      assignedBy: "ADMIN",
-      password: password,
-      passwordHash: passwordHash,
-      createdAt: new Date().toISOString(),
-    });
+    if (!createdUser) {
+      return NextResponse.json(
+        { error: "User account could not be saved to the database." },
+        { status: 503 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      user: createdUser || storeUser,
+      user: createdUser,
     });
   } catch (error: unknown) {
     console.error("POST /api/users error:", error);

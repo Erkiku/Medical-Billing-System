@@ -3,30 +3,27 @@ import prisma from "@/lib/prisma";
 
 export async function GET(req: Request) {
   try {
-    if (process.env.DATABASE_URL) {
-      const { searchParams } = new URL(req.url);
-      const search = searchParams.get("search") || "";
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get("search") || "";
 
-      const where: any = {};
-      if (search) {
-        where.OR = [
-          { name: { contains: search } },
-          { hospitalOrClinic: { contains: search } },
-          { registrationNumber: { contains: search } },
-        ];
-      }
-
-      const doctors = await prisma.doctor.findMany({
-        where,
-        orderBy: { name: "asc" },
-      });
-
-      return NextResponse.json(doctors);
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { hospitalOrClinic: { contains: search } },
+        { registrationNumber: { contains: search } },
+      ];
     }
-    return NextResponse.json([]);
+
+    const doctors = await prisma.doctor.findMany({
+      where,
+      orderBy: { name: "asc" },
+    });
+
+    return NextResponse.json(doctors);
   } catch (error: unknown) {
-    console.warn("Doctors query error, returning empty list:", error);
-    return NextResponse.json([]);
+    console.error("Doctors query failed:", error);
+    return NextResponse.json({ error: "Doctors could not be loaded from the database." }, { status: 503 });
   }
 }
 

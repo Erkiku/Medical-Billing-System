@@ -11,8 +11,8 @@ export async function GET() {
     });
     return NextResponse.json(suppliers);
   } catch (error: unknown) {
-    console.warn("Suppliers query error, returning empty list:", error);
-    return NextResponse.json([]);
+    console.error("Suppliers query failed:", error);
+    return NextResponse.json({ error: "Suppliers could not be loaded from the database." }, { status: 503 });
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Truck, Plus, RefreshCw, Search, Phone, Mail, FileText, X } from "lucide-react";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -18,9 +19,9 @@ export default function SuppliersPage() {
     contactPerson: "",
   });
 
-  const fetchSuppliers = () => {
-    setLoading(true);
-    fetch("/api/suppliers")
+  const fetchSuppliers = (silent = false) => {
+    if (!silent) setLoading(true);
+    fetch("/api/suppliers", { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         setSuppliers(Array.isArray(data) ? data : []);
@@ -36,6 +37,7 @@ export default function SuppliersPage() {
   useEffect(() => {
     fetchSuppliers();
   }, []);
+  useLiveRefresh(() => fetchSuppliers(true));
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
     e.preventDefault();

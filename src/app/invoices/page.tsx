@@ -15,6 +15,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { formatINR, formatDate, formatDateTime } from "@/lib/utils";
+import { useLiveRefresh } from "@/lib/useLiveRefresh";
 
 export default function InvoicesListPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
@@ -26,12 +27,12 @@ export default function InvoicesListPage() {
   const [paymentMode, setPaymentMode] = useState<string>("CASH");
   const [paymentLoading, setPaymentLoading] = useState(false);
 
-  const fetchInvoices = () => {
-    setLoading(true);
+  const fetchInvoices = (silent = false) => {
+    if (!silent) setLoading(true);
     let url = `/api/invoices?status=${statusFilter}`;
     if (search.trim()) url += `&search=${encodeURIComponent(search)}`;
 
-    fetch(url)
+    fetch(url, { cache: "no-store" })
       .then((res) => res.json())
       .then((data) => {
         setInvoices(Array.isArray(data) ? data : []);
@@ -47,6 +48,7 @@ export default function InvoicesListPage() {
   useEffect(() => {
     fetchInvoices();
   }, [statusFilter]);
+  useLiveRefresh(() => fetchInvoices(true));
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
