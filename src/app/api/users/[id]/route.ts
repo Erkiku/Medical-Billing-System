@@ -14,9 +14,7 @@ export async function PUT(
     const currentUser = await getCurrentUser();
     const isAdmin =
       !currentUser ||
-      currentUser.role?.toUpperCase() === "ADMIN" ||
-      currentUser.email?.includes("eduvikku") ||
-      currentUser.name?.includes("eduvikku");
+      currentUser.role?.toUpperCase() === "ADMIN";
 
     if (currentUser && !isAdmin) {
       return NextResponse.json(
@@ -84,9 +82,7 @@ export async function DELETE(
     const currentUser = await getCurrentUser();
     const isAdmin =
       !currentUser ||
-      currentUser.role?.toUpperCase() === "ADMIN" ||
-      currentUser.email?.includes("eduvikku") ||
-      currentUser.name?.includes("eduvikku");
+      currentUser.role?.toUpperCase() === "ADMIN";
 
     if (currentUser && !isAdmin) {
       return NextResponse.json(
@@ -97,25 +93,10 @@ export async function DELETE(
 
     const { id } = await params;
 
-    if (id === "dev-user-001") {
-      return NextResponse.json(
-        { error: "Cannot delete the primary developer assigned account" },
-        { status: 400 }
-      );
-    }
-
     deleteAssignedUser(id);
 
     if (process.env.DATABASE_URL) {
       try {
-        const user = await prisma.user.findUnique({ where: { id } });
-        if (user?.assignedBy === "DEVELOPER" && user?.username === "eduvikku@007") {
-          return NextResponse.json(
-            { error: "Cannot delete the primary developer assigned account" },
-            { status: 400 }
-          );
-        }
-
         await prisma.user.delete({ where: { id } });
       } catch (dbError: any) {
         console.warn("DB user delete failed (removed from store):", dbError?.message);

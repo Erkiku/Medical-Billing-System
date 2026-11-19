@@ -53,41 +53,7 @@ const DEFAULT_STORE: RuntimeStoreSettings = {
   smsGateway: "MOCK",
 };
 
-const DEFAULT_USERS: RuntimeUser[] = [
-  {
-    id: "dev-user-001",
-    name: "Eduvikku Admin",
-    username: "eduvikku@007",
-    email: "eduvikku@medicalpro.com",
-    role: "ADMIN",
-    active: true,
-    assignedBy: "DEVELOPER",
-    password: "admin",
-    createdAt: new Date("2026-01-01").toISOString(),
-  },
-  {
-    id: "dev-user-002",
-    name: "System Admin",
-    username: "admin",
-    email: "admin@medicalpro.com",
-    role: "ADMIN",
-    active: true,
-    assignedBy: "DEVELOPER",
-    password: "admin",
-    createdAt: new Date("2026-01-01").toISOString(),
-  },
-  {
-    id: "dev-user-003",
-    name: "Staff Pharmacist",
-    username: "pharmacist",
-    email: "pharmacist@medicalpro.com",
-    role: "PHARMACIST",
-    active: true,
-    assignedBy: "DEVELOPER",
-    password: "admin",
-    createdAt: new Date("2026-01-01").toISOString(),
-  },
-];
+const DEFAULT_USERS: RuntimeUser[] = [];
 
 const globalStore = globalThis as unknown as {
   _runtimeAssignedUsers?: RuntimeUser[];
@@ -181,7 +147,7 @@ export function deleteAssignedUser(id: string): boolean {
   }
   const initialLen = globalStore._runtimeAssignedUsers.length;
   globalStore._runtimeAssignedUsers = globalStore._runtimeAssignedUsers.filter(
-    (u) => u.id !== id && u.username !== "eduvikku@007"
+    (u) => u.id !== id
   );
   return globalStore._runtimeAssignedUsers.length < initialLen;
 }

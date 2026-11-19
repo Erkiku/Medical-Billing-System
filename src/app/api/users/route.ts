@@ -46,9 +46,7 @@ export async function POST(req: Request) {
     const currentUser = await getCurrentUser();
     const isAdmin =
       !currentUser ||
-      currentUser.role?.toUpperCase() === "ADMIN" ||
-      currentUser.email?.includes("eduvikku") ||
-      currentUser.name?.includes("eduvikku");
+      currentUser.role?.toUpperCase() === "ADMIN";
 
     if (currentUser && !isAdmin) {
       return NextResponse.json(
