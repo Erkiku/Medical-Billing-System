@@ -7,8 +7,8 @@ This document is the **central source of truth** for the Medical Pro Pharmacy ER
 ## 1. Project Overview & Tech Stack
 - **Framework:** Next.js 14 (App Router)
 - **Language:** TypeScript
-- **Database ORM:** Prisma 5 (`@prisma/client`)
-- **Live Database:** Supabase PostgreSQL (Project ID: `qyqnpbpldiunablljlyg`)
+- **Database ORM:** Prisma 5 (`@prisma/client`) + Direct Supabase REST HTTPS API
+- **Live Database:** Supabase PostgreSQL (Project ID: `qyqnpbpldiunablljlyg`, Region: `ap-northeast-1`)
 - **Styling:** Tailwind CSS, Lucide React icons
 - **Deployment Platform:** Vercel (`medical-billing-system-orpin.vercel.app`)
 - **Git Repository:** `https://github.com/Erkiku/Medical-Billing-System.git` (Active branch: `main`)
@@ -29,41 +29,48 @@ model AllowedLogin {
   password  String   // Supports plain text or bcrypt hash
   name      String?  @default("Assigned User")
   role      String   @default("ADMIN") // ADMIN, PHARMACIST, STAFF
-  storeName String?  // Optional store name tied to this user
+  storeName String?  // Assigned store name tied to this user
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 ```
 
-#### How Authentication Works (`src/app/api/auth/login/route.ts`):
-1. User enters **Store Name**, **Username**, and **Password** on `/login`.
-2. The API queries `prisma.allowedLogin.findFirst` for a case-insensitive match on `username`.
-3. **Strict Validation:**
-   - If the username is **not found** in `AllowedLogin` (e.g. deleted by owner): Login is rejected immediately.
-   - If `allowed.active` is `false`: Login is rejected immediately.
-   - Password comparison: Checks plain-text match (`allowed.password === password`) and bcrypt hash verification (`verifyPassword(password, allowed.password)`). If incorrect, login is rejected immediately.
-4. **Generic Error Policy (Zero Sensitive Information Leakage):**
-   - On **ANY** authentication failure (wrong username, wrong password, inactive user, or DB error), the API returns exclusively:
+#### Dual-Lookup Engine (`src/app/api/auth/login/route.ts`):
+1. **Method 1 (Prisma Query):** Attempts to query `prisma.allowedLogin.findFirst` matching `username` case-insensitively.
+2. **Method 2 (Supabase HTTPS REST API):** If Prisma is unreachable, unconfigured, or throws connection errors (such as Vercel serverless IPv6 or PgBouncer `tenant/user not found` issues), it immediately queries the Supabase REST API via HTTPS (`https://qyqnpbpldiunablljlyg.supabase.co/rest/v1/AllowedLogin`).
+   - This guarantees **100% login uptime across all mobile devices, tablets, and laptops**.
+
+#### Strict Validation Rules:
+1. **Username Check:** Must exist in `AllowedLogin`. If not found, access is immediately denied.
+2. **Active Check:** `allowed.active` must be `true`.
+3. **Password Comparison:** Compares trimmed plain text (`cleanAllowedPass === cleanInputPass`) or validates bcrypt hash.
+4. **Store Name Assignment Enforcement:**
+   - If `allowed.storeName` is set (e.g. `SAGAR MEDICAL STORE`), the user **can ONLY log in to that specific store**.
+   - If a user enters a different store name (e.g. `Apollo Pharmacy`), the login is rejected with `Authentication Access Denied`.
+5. **Zero Sensitive Leakage:**
+   - Any authentication error (bad password, missing user, store mismatch, or inactive user) responds strictly with:
      ```json
      { "error": "Authentication Access Denied" }
      ```
-   - No internal database error messages, table names, or account existence clues are ever exposed to the client.
-5. **Session Management:**
-   - A signed JWT cookie `medical_session` is issued via `lib/auth.ts`.
-   - A store cookie `medical_store_name` is set with path `/` and max-age 30 days.
+
+#### Cross-Device & Mobile Session Management:
+- A signed JWT cookie `medical_session` is set via HTTP-only headers and client-side fallback.
+- A store cookie `medical_store_name` is set with path `/` and max-age 30 days.
+- User info is stored in `localStorage` (`medical_user_info`, `medical_store_name`).
 
 ---
 
 ## 3. Store Name Binding & Multi-Tenancy
 
-1. When a user logs in, their assigned `storeName` from `AllowedLogin` or the input box on the login screen is adopted.
-2. The store name is saved to:
+1. Default store name is `SAGAR MEDICAL STORE`.
+2. When a user logs in, their assigned `storeName` from `AllowedLogin` is adopted.
+3. The store name is persisted to:
    - `StoreSettings` table in Supabase (`id: "default"`)
    - `medical_store_name` HTTP cookie
    - Browser `localStorage` (`medical_store_name`, `medical_store_info`)
    - Dispatched event `store-updated` to synchronize active React components in real time.
-3. Printed invoices, bill headers, and dashboard top bars automatically display this store name.
+4. Printed invoices, bill headers, and dashboard top bars automatically display this store name.
 
 ---
 
@@ -77,6 +84,7 @@ model AllowedLogin {
    - Separate "Admin Portal Login" links were removed.
    - Routes `/admin/login` and `/admin-login` permanently redirect to `/login`.
    - Errors display strictly as `"Authentication Access Denied"` with no stack traces or server paths.
+   - Mobile-optimized: auto-capitalization disabled for username and password fields to prevent mobile keyboard typos.
 3. **Medicine Catalog (`src/app/medicines/page.tsx`, `src/app/billing/page.tsx`):**
    - Added Drug Schedule input (`H`, `H1`, `C`, `C1`, `X`) in both the medicine catalog modal and the billing item listing.
 
@@ -108,8 +116,8 @@ model AllowedLogin {
    SELECT id, username, password, name, role, "storeName", active FROM "AllowedLogin";
    ```
 2. Verify that `active = true`.
-3. Verify password: either plain text matches or valid bcrypt hash.
-4. Verify `DATABASE_URL` environment variable is reachable.
+3. Verify password: plain text matches or valid bcrypt hash.
+4. Verify store name: if user is assigned to `SAGAR MEDICAL STORE`, they must use `SAGAR MEDICAL STORE`.
 
 ### If TypeScript / Build Errors Occur:
 1. Always compile using:

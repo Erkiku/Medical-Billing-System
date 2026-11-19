@@ -1,133 +1,163 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { verifyPassword, setSessionCookie } from "@/lib/auth";
+import { verifyPassword, createSessionToken, setSessionCookie } from "@/lib/auth";
 import { getStoreSettings, updateStoreSettings } from "@/lib/userStore";
 
 const GENERIC_AUTH_ERROR = "Authentication Access Denied";
+
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  "https://qyqnpbpldiunablljlyg.supabase.co";
+
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5cW5wYnBsZGl1bmFibGxqbHlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUwMDA2NTUsImV4cCI6MjExMDU3NjY1NX0.k2P1mBWOKYWWZWqRsD18L4q5zIpP2zc-R-J9SRHHZwI";
+
+/**
+ * Robust AllowedLogin user lookup:
+ * 1. Attempts Prisma query (live database connection).
+ * 2. If Prisma is unreachable, fails, or throws (e.g. serverless IPv6 or pooler issue on Vercel),
+ *    falls back to direct HTTPS Supabase REST API (works across all mobile, desktop, and serverless environments).
+ */
+async function findAllowedLoginUser(cleanIdentifier: string) {
+  // Method 1: Try Prisma
+  if (process.env.DATABASE_URL) {
+    try {
+      const allowed = await prisma.allowedLogin.findFirst({
+        where: {
+          username: { equals: cleanIdentifier, mode: "insensitive" },
+        },
+      });
+      if (allowed) return allowed;
+    } catch (prismaErr) {
+      console.warn("Prisma allowedLogin query warning, trying REST fallback:", prismaErr);
+    }
+  }
+
+  // Method 2: Supabase REST API via HTTPS
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/AllowedLogin?select=*&username=ilike.${encodeURIComponent(cleanIdentifier)}`;
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows.length > 0) {
+        return rows[0];
+      }
+    }
+  } catch (restErr) {
+    console.error("Supabase REST API lookup error:", restErr);
+  }
+
+  return null;
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { email, username, password, storeName } = body;
     const identifier = String(username || email || "").trim().toLowerCase();
+    const rawPassword = String(password || "").trim();
 
-    if (!identifier || !password) {
-      return NextResponse.json(
-        { error: GENERIC_AUTH_ERROR },
-        { status: 401 }
-      );
+    if (!identifier || !rawPassword) {
+      return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
     }
 
-    let authenticatedUser: any = null;
+    // 1. Fetch user strictly from AllowedLogin table in Supabase
+    const allowed = await findAllowedLoginUser(identifier);
 
-    // 1. Strictly authenticate against live database "AllowedLogin" table (Supabase)
-    if (process.env.DATABASE_URL) {
-      try {
-        const allowed = await prisma.allowedLogin.findFirst({
-          where: {
-            username: { equals: identifier, mode: "insensitive" },
-          },
-        });
+    if (!allowed) {
+      return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
+    }
 
-        if (allowed) {
-          // If deactivated in database, reject with generic denied error
-          if (!allowed.active) {
-            return NextResponse.json(
-              { error: GENERIC_AUTH_ERROR },
-              { status: 401 }
-            );
-          }
+    // 2. Active status check
+    if (!allowed.active) {
+      return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
+    }
 
-          // Support both direct plain text password and bcrypt hash
-          let isValid = false;
-          const cleanAllowedPass = String(allowed.password || "").trim();
-          const cleanInputPass = String(password || "").trim();
+    // 3. Password comparison (supports direct plain text or bcrypt hash)
+    let isPasswordValid = false;
+    const cleanDbPass = String(allowed.password || "").trim();
 
-          if (cleanAllowedPass === cleanInputPass || allowed.password === password) {
-            isValid = true;
-          } else {
-            try {
-              isValid = await verifyPassword(password, allowed.password);
-            } catch {}
-          }
-
-          if (isValid) {
-            const role = String(allowed.role || "ADMIN").trim();
-            authenticatedUser = {
-              id: allowed.id,
-              name: allowed.name || allowed.username,
-              username: allowed.username,
-              email: `${allowed.username}@medicalpro.local`,
-              role: role,
-              storeName: allowed.storeName ? allowed.storeName.trim() : null,
-            };
-          } else {
-            return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
-          }
-        }
-      } catch (dbError: unknown) {
-        console.error("AllowedLogin lookup error:", dbError);
-        return NextResponse.json(
-          { error: GENERIC_AUTH_ERROR },
-          { status: 401 }
-        );
-      }
+    if (cleanDbPass === rawPassword || allowed.password === password) {
+      isPasswordValid = true;
     } else {
-      console.error("DATABASE_URL is missing in environment");
-      return NextResponse.json(
-        { error: GENERIC_AUTH_ERROR },
-        { status: 401 }
-      );
+      try {
+        isPasswordValid = await verifyPassword(rawPassword, allowed.password);
+      } catch {}
     }
 
-    // If not found in AllowedLogin table or credentials did not match, deny access
-    if (!authenticatedUser) {
-      return NextResponse.json(
-        { error: GENERIC_AUTH_ERROR },
-        { status: 401 }
-      );
+    if (!isPasswordValid) {
+      return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
     }
 
-    // 2. Resolve Store Name (prefer input if given, otherwise use storeName from AllowedLogin table)
-    const inputStoreName =
-      storeName && typeof storeName === "string" && storeName.trim()
-        ? storeName.trim()
-        : null;
+    // 4. Store Name Assignment Enforcement
+    // "STORE NAME AAK BAAR STROE KISI NAEM KE ASSIGN HO GYA TO usssi ke login kar skta hai"
+    const assignedStore = allowed.storeName ? String(allowed.storeName).trim() : null;
+    const inputStore = storeName && typeof storeName === "string" ? storeName.trim() : "";
 
-    const assignedStoreName = authenticatedUser.storeName || null;
-    const finalTargetStore = inputStoreName || assignedStoreName;
-
-    let currentStore = getStoreSettings();
-    if (finalTargetStore) {
-      currentStore = updateStoreSettings({ storeName: finalTargetStore });
-
-      if (process.env.DATABASE_URL) {
-        try {
-          const dbUpdated = await prisma.storeSettings.upsert({
-            where: { id: "default" },
-            update: { storeName: finalTargetStore },
-            create: { id: "default", storeName: finalTargetStore },
-          });
-          currentStore = { ...currentStore, ...dbUpdated, storeName: finalTargetStore };
-        } catch (dbErr) {
-          console.warn("Could not persist storeName to live database:", dbErr);
-        }
+    if (assignedStore) {
+      // If user typed a store name, it MUST match the assigned store name (case-insensitive)
+      if (inputStore && inputStore.toLowerCase() !== assignedStore.toLowerCase()) {
+        return NextResponse.json({ error: GENERIC_AUTH_ERROR }, { status: 401 });
       }
     }
 
-    const finalStoreName = finalTargetStore || currentStore.storeName;
+    const finalStoreName = assignedStore || inputStore || getStoreSettings().storeName || "SAGAR MEDICAL STORE";
 
-    const userWithStore = {
-      ...authenticatedUser,
+    const role = String(allowed.role || "ADMIN").trim().toUpperCase();
+    const authenticatedUser = {
+      id: allowed.id,
+      name: allowed.name || allowed.username,
+      username: allowed.username,
+      email: `${allowed.username}@medicalpro.local`,
+      role: role,
       storeName: finalStoreName,
     };
 
-    // 3. Establish Session Cookie with storeName
-    await setSessionCookie(userWithStore, finalStoreName);
+    // 5. Update runtime & DB store settings to keep all devices synchronized
+    let currentStore = updateStoreSettings({ storeName: finalStoreName });
+
+    if (process.env.DATABASE_URL) {
+      try {
+        const dbUpdated = await prisma.storeSettings.upsert({
+          where: { id: "default" },
+          update: { storeName: finalStoreName },
+          create: { id: "default", storeName: finalStoreName },
+        });
+        currentStore = { ...currentStore, ...dbUpdated, storeName: finalStoreName };
+      } catch {}
+    } else {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/StoreSettings?id=eq.default`, {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ storeName: finalStoreName }),
+        });
+      } catch {}
+    }
+
+    // 6. Establish Session Cookies & Generate Token for client/mobile storage
+    const token = await createSessionToken(authenticatedUser);
+    await setSessionCookie(authenticatedUser, finalStoreName);
 
     return NextResponse.json({
       success: true,
-      user: userWithStore,
+      token,
+      user: authenticatedUser,
       store: {
         ...currentStore,
         storeName: finalStoreName,

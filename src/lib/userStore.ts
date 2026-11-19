@@ -35,7 +35,7 @@ export interface RuntimeStoreSettings {
 
 const DEFAULT_STORE: RuntimeStoreSettings = {
   id: "default",
-  storeName: "R & A Medical Store",
+  storeName: "SAGAR MEDICAL STORE",
   tagline: "Retail & Wholesale Chemists • Complete Healthcare",
   address: "123, Main Hospital Road, Civil Lines",
   city: "New Delhi",

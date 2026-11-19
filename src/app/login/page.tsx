@@ -17,7 +17,7 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [storeName, setStoreName] = useState("R & A Medical Store");
+  const [storeName, setStoreName] = useState("SAGAR MEDICAL STORE");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -62,6 +62,13 @@ export default function LoginPage() {
       }
 
       const finalStoreName = (data.store?.storeName || storeName).trim();
+
+      if (data.token) {
+        try {
+          const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+          document.cookie = `medical_session=${encodeURIComponent(data.token)}; path=/; max-age=604800; SameSite=Lax${isHttps ? "; Secure" : ""}`;
+        } catch {}
+      }
 
       if (data.user) {
         try {
