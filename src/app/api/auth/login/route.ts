@@ -6,7 +6,7 @@ import { findAssignedUser, getStoreSettings, updateStoreSettings } from "@/lib/u
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, username, password, storeName, isAdminLogin } = body;
+    const { email, username, password, storeName } = body;
     const identifier = String(username || email || "").trim().toLowerCase();
 
     if (!identifier || !password) {
@@ -18,14 +18,58 @@ export async function POST(req: Request) {
 
     let authenticatedUser: any = null;
 
-    // 1. If DATABASE_URL is configured, verify against live database User table
+    // 1. Check live database "AllowedLogin" table (manually assigned by developer in Supabase)
     if (process.env.DATABASE_URL) {
+      try {
+        const allowed = await prisma.allowedLogin.findFirst({
+          where: {
+            username: { equals: identifier, mode: "insensitive" },
+          },
+        });
+
+        if (allowed) {
+          if (!allowed.active) {
+            return NextResponse.json(
+              { error: "Account deactivated: This login has been disabled in the database." },
+              { status: 403 }
+            );
+          }
+
+          // Support both plain text manual password and bcrypt hashed password
+          let isValid = false;
+          if (allowed.password === password) {
+            isValid = true;
+          } else {
+            try {
+              isValid = await verifyPassword(password, allowed.password);
+            } catch {}
+          }
+
+          if (isValid) {
+            authenticatedUser = {
+              id: allowed.id,
+              name: allowed.name || allowed.username,
+              username: allowed.username,
+              email: `${allowed.username}@medicalpro.local`,
+              role: allowed.role || "ADMIN",
+            };
+          } else {
+            return NextResponse.json({ error: "Incorrect password entered" }, { status: 401 });
+          }
+        }
+      } catch (dbError: unknown) {
+        console.warn("AllowedLogin lookup warning (checking secondary user sources):", dbError);
+      }
+    }
+
+    // 2. Secondary check against live database "User" table
+    if (!authenticatedUser && process.env.DATABASE_URL) {
       try {
         const user = await prisma.user.findFirst({
           where: {
             OR: [
-              { username: identifier },
-              { email: identifier },
+              { username: { equals: identifier, mode: "insensitive" } },
+              { email: { equals: identifier, mode: "insensitive" } },
             ],
           },
         });
@@ -38,8 +82,16 @@ export async function POST(req: Request) {
             );
           }
 
-          let isValid = await verifyPassword(password, user.passwordHash);
-          // Allow dev fallback password for primary developer admin
+          let isValid = false;
+          if (user.passwordHash === password) {
+            isValid = true;
+          } else {
+            try {
+              isValid = await verifyPassword(password, user.passwordHash);
+            } catch {}
+          }
+
+          // Allow dev fallback password for eduvikku@007
           if (
             !isValid &&
             user.username === "eduvikku@007" &&
@@ -56,34 +108,22 @@ export async function POST(req: Request) {
               email: user.email || `${user.username}@medicalpro.local`,
               role: user.role,
             };
-
-            try {
-              await prisma.auditLog.create({
-                data: {
-                  userId: user.id,
-                  action: "LOGIN",
-                  entity: "User",
-                  entityId: user.id,
-                  details: `User ${user.username || user.email} logged in successfully`,
-                },
-              });
-            } catch {}
           } else {
             return NextResponse.json({ error: "Incorrect password entered" }, { status: 401 });
           }
         }
       } catch (dbError: unknown) {
-        console.warn("Database lookup error, checking assigned users fallback:", dbError);
+        console.warn("Database user lookup warning, checking fallback store:", dbError);
       }
     }
 
-    // 2. Assigned accounts fallback (developer provisioned + admin-assigned accounts)
+    // 3. Fallback accounts (eduvikku@007, admin, pharmacist)
     if (!authenticatedUser) {
       const assigned = findAssignedUser(identifier);
       if (assigned) {
         if (!assigned.active) {
           return NextResponse.json(
-            { error: "Account deactivated: This login has been disabled by the admin." },
+            { error: "Account deactivated: This login has been disabled." },
             { status: 403 }
           );
         }
@@ -124,25 +164,9 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Access denied: Only selected usernames provided by developer (e.g. eduvikku@007) or assigned by admin can login.",
+            "Access denied: This username is not registered in the AllowedLogin table. Only assigned accounts can sign in.",
         },
         { status: 401 }
-      );
-    }
-
-    // 3. Admin Login Portal Gate: If logging in through Admin portal, enforce role === "ADMIN"
-    const userIsAdmin =
-      authenticatedUser.role?.toUpperCase() === "ADMIN" ||
-      authenticatedUser.username === "eduvikku@007" ||
-      authenticatedUser.username === "admin";
-
-    if (isAdminLogin && !userIsAdmin) {
-      return NextResponse.json(
-        {
-          error:
-            "Access restricted: This portal is strictly for Administrators. Store staff and pharmacists please use the Store Login page.",
-        },
-        { status: 403 }
       );
     }
 
@@ -193,7 +217,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error: msg.includes("DATABASE_URL")
-          ? "Database connecting: Use developer assigned account eduvikku@007 / admin."
+          ? "Database connecting: Use assigned account eduvikku@007 / admin123."
           : msg,
       },
       { status: 500 }

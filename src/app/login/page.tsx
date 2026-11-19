@@ -215,18 +215,6 @@ export default function LoginPage() {
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
-
-          {/* Admin Login Portal Link */}
-          <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-slate-500">Developer or System Admin?</span>
-            <Link
-              href="/admin/login"
-              className="text-purple-700 hover:text-purple-900 font-bold inline-flex items-center gap-1 hover:underline transition-all"
-            >
-              <span>Admin Portal Login</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
         </div>
       </div>
     </div>
