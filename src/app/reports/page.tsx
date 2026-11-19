@@ -164,7 +164,7 @@ function ReportsContent() {
             />
           </div>
           <button
-            onClick={fetchReport}
+            onClick={() => fetchReport()}
             className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg"
           >
             Apply Dates
@@ -172,7 +172,7 @@ function ReportsContent() {
         </div>
 
         <button
-          onClick={fetchReport}
+          onClick={() => fetchReport()}
           className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1"
         >
           <RefreshCw className="h-3.5 w-3.5" />

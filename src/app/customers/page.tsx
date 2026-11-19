@@ -153,7 +153,7 @@ export default function CustomersPage() {
         </div>
         <div className="flex items-center gap-2.5">
           <button
-            onClick={fetchCustomers}
+            onClick={() => fetchCustomers()}
             className="p-2.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 transition-colors"
           >
             <RefreshCw className="h-4 w-4" />
